@@ -1,0 +1,1 @@
+[File: 'target_chains/solana/programs/pyth-price-store/src/processor.rs'] [Function: buffer::update (accounts/buffer.rs)] Can a registered publisher trigger a panic in `buffer::update` via the `checked_add(...).expect(\
