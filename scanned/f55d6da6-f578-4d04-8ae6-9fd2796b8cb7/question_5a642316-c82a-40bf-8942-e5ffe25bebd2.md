@@ -1,1 +1,0 @@
-[File: 'target_chains/solana/crates/wormhole-solana/src/instructions.rs -> post_message.rs + message.rs'] [Function: post_message (Reliability::Permanent) fee payment path] Can an unprivileged transaction sender call the `post_message` CPI helper with a `Config` account that reports `params.fee = 0` (by passing a spoofed config account that is not the canonical `[b\
