@@ -1,0 +1,1 @@
+Looking at the Pyth codebase, I found a direct analog in `Scheduler.sol`.
