@@ -1,0 +1,1 @@
+Looking at the vulnerability class — **state not properly cleared after action, allowing incorrect behavior** — I need to find analogous patterns in the Pyth codebase where request state is mishandled after a lifecycle action.
