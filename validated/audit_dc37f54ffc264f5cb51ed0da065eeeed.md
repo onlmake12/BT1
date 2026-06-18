@@ -1,1 +1,0 @@
-Looking at the vulnerability class — **inconsistent logic between a function that defines a calculation and dependent functions that rely on it** — I need to find an analog in the Pyth codebase where a fee/accounting function defines one value but a dependent execution function uses a different, inconsistent value.

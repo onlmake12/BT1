@@ -1,1 +1,0 @@
-Looking at the vulnerability class — **no minimum size restriction allowing an unprivileged user to create many small entries that grief other users** — I need to find an analog in Pyth's production contracts. Let me examine the Echo contract's request handling and the unbounded loop in `executeCallback`.
