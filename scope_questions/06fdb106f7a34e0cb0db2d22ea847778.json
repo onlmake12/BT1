@@ -1,0 +1,107 @@
+[
+  {
+    "question": "'File Name: util/types/src/extension.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f8794963-9872-4fa4-af59-f659cf95e69f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/global.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_90a6b8ab-1f93-46c2-be55-3734bb17d1c3?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_72152804-b4e9-4fc1-a11c-286b7806057d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/prelude.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a4c50b87-a47e-4bcd-bba4-a29c59cdb045?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/utilities/block_filter.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4c053db9-60d3-47fd-8db2-a711ba38a0b3?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/utilities/difficulty.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3de576e4-a62c-47da-9790-f036a167dec2?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/utilities/merkle_mountain_range.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3385f6fd-2f5f-4ba1-a457-f39da28d2a92?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/utilities/merkle_tree.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3e58441d-c46e-4fec-93fb-82bd876a6a1a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/types/src/utilities/mod.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c4937dd9-9e8f-47d2-bf75-bf5922b8ce8d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/contextual/src/contextual_block_verifier.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_891020cd-2510-408a-ae45-06e83d4d3f04?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/contextual/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_21e23cc6-86a8-4d47-b8ff-4980278d603b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/contextual/src/uncles_verifier.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e1b0617c-2e52-447d-8083-28db5f84d6ec?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/block_verifier.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b2a5ab19-e0ba-41bd-b375-369045c8a437?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/cache.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f5967832-b6e9-4bbe-ad80-ffdf709ad5df?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/convert.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_81a1c00f-5875-439e-94f7-bd65fe979769?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/error.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4eec3eb7-0f7c-4f7d-81bb-53b792f4d52b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/genesis_verifier.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_755f24c3-dad5-47a9-938d-6470e4ea0631?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/header_verifier.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_768659ba-3170-49f8-890f-274e6ef75434?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_324667cc-1de0-4eff-833b-c4e14b2ee804?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/src/transaction_verifier.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a909fc1d-af61-42da-8b9e-2c45b7cbf61a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: verification/traits/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ba8f6ba2-a44f-4d85-b837-c0daad5c0a47?mode=deep",
+    "questions_generated": false
+  }
+]
