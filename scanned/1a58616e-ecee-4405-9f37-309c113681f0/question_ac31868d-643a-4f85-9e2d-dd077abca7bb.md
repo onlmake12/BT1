@@ -1,0 +1,1 @@
+[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Critical (15001 - 25000 points)'] [Function: impl_std_fmt!/Debug for H256 + util/fixed-hash/macros/src/lib.rs::h256!] Can an unprivileged attacker who triggers a Rust toolchain or formatting-layer change cause the Debug impl (format!(\

@@ -1,0 +1,1 @@
+[File: 'verification/contextual/src/lib.rs -> contextual_block_verifier.rs (via util/reward-calculator/src/lib.rs)'] [Function: RewardCalculator::block_reward_internal] Can an unprivileged local operator supply a store where `get_cellbase` returns `None` for the target block hash, causing `.expect(\
