@@ -1,1 +1,0 @@
-[File: 'util/src/strings.rs'] [Function: check_if_identifier_is_valid] Can an unprivileged operator-local user supply a long invalid identifier (e.g., 1 MB of valid ASCII followed by a single space) under the precondition that the error branch uses format!(\
