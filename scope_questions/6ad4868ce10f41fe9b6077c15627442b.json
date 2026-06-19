@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: miner/src/lib.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5f5609af-fd89-4c44-9cf1-2f9205f222ab?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/miner.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_39f7f195-7ab1-42bd-ac0a-b3608aad6208?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/dummy.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4cadc2aa-1e16-42ef-99ba-cf414c1f8940?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/eaglesong_simple.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3e820636-3b45-4246-913f-9a64c5f26d5f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/mod.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c1146893-06eb-498d-a57a-b3a434a55092?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/behaviour.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3d2be94a-9491-4a63-874b-33045dc93cb9?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/compress.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b70608f7-3390-4d5c-bd1e-969b013d3242?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/errors.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f0cb71ff-a9a3-4272-857d-f7357bd1c71c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/lib.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2d08d2e1-1915-43df-b6b3-181f84aaaa70?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_553998be-5316-4a01-a628-3818af14f86c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network_group.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f319278f-80bc-4bee-9266-ed05ec751b4a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d39b66cf-3870-4de6-9361-7de836c5800a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_registry.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_43ba4c76-5395-4e03-8758-c4e5233d0479?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/addr_manager.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_50cdec95-84c6-44d8-a8d9-d87433f8bebc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/anchors.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_41f6ca8d-dbbf-4be6-8aa4-ba7eb2427a96?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/ban_list.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d897b9e4-30c5-4932-98a4-e1f4b1750d2c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/browser.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_1c085d06-bb70-4da4-a624-7fe878eee901?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/mod.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d0c169d4-dc90-4c65-bf6c-f2b2bfbe77e5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_db.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f6ff15bb-b0d7-4f22-9c91-1bae9c85e6f3?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_impl.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b6ee5620-3f32-421d-a76e-fa52ba07d920?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/types.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e6950821-0795-41d7-aeac-bc8d7cb1fcc6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/disconnect_message.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_93464ec7-9952-4adc-91be-9e7f5ee45816?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/addr.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8880d6af-6068-4e44-b6fa-a17c74df46d5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/mod.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_224b05bc-6d0e-49f6-bc46-c652bb909e04?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/protocol.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2a688287-75f6-4141-9f15-c9176622939e?mode=deep",
+    "questions_generated": false
+  }
+]
