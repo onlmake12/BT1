@@ -1,0 +1,1 @@
+[File: 'util/onion/src/onion_service.rs'] [Function: wait_tor_server_bootstrap_done - 'Done' substring check (tor_controller.rs)] Can an unprivileged attacker who controls the Tor controller's GETINFO status/bootstrap-phase response trigger a false-positive bootstrap completion in wait_tor_server_bootstrap_done, because the check info.contains(\

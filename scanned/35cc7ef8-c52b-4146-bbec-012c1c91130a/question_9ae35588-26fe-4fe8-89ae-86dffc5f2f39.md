@@ -1,0 +1,1 @@
+[File: 'util/migrate/src/migrations/set_2019_block_cycle_zero.rs'] [Function: BlockExt2019ToZero::migrate / txs_sizes None panic in FeeRateCollector (rpc/src/util/fee_rate.rs line 93)] Can the `FeeRateCollector::statistics()` call `txs_sizes.expect(\

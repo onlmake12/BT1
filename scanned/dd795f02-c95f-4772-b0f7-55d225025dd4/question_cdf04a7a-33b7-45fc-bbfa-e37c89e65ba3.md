@@ -1,0 +1,1 @@
+[File: 'util/jsonrpc-types/src/indexer.rs'] [Function: IndexerRange / IndexerSearchKeyFilter.output_capacity_range / get_cells_capacity (util/indexer/src/service.rs:956-960)] Can an unprivileged RPC caller supply an output_capacity_range where start equals end (e.g., [\

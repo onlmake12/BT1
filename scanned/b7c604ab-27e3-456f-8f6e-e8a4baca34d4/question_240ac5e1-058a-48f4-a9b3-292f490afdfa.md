@@ -1,0 +1,1 @@
+[File: 'ckb-bin/src/subcommand/replay.rs'] [Function: replay / profile] Can an operator running `ckb replay --profile` on a source DB that contains a block whose `get_block` call internally calls `freezer.retrieve(header.number()).expect(\

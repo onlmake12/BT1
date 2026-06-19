@@ -1,0 +1,1 @@
+[File: 'freezer/src/lib.rs -> store/src/store.rs::ChainStore::get_block'] [Function: ChainStore::get_block] Can a TOCTOU race between the `header.number() < freezer.number()` guard and the subsequent `freezer.retrieve(header.number()).expect(\
