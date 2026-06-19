@@ -1,1 +1,0 @@
-[File: 'sync/src/synchronizer/get_headers_process.rs'] [Function: GetHeadersProcess::execute / format! at line 96] Can an unprivileged remote peer, by sending a GetHeaders message with exactly MAX_LOCATOR_SIZE=101 hashes that do not end with genesis hash (triggering GetHeadersMissCommonAncestors), cause the format!(\
