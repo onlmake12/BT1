@@ -1,0 +1,1 @@
+[File: 'util/logger/src/lib.rs + util/logger-service/src/lib.rs'] [Function: Logger::log, MainLogger file write (write_all without BufWriter)] Can an unprivileged operator configure log_to_file=true without any buffering layer, causing the LogWriter thread to call file.write_all(removed_color.as_bytes()) followed by file.write_all(b\

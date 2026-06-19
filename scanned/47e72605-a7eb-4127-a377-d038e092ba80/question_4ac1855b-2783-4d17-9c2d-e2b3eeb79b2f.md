@@ -1,0 +1,1 @@
+[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: impl_std_fmt!(Debug for H256/H512/H520) + util/fixed-hash/macros/src/lib.rs impl_hash!] Can an attacker-controlled environment where the Debug format output of H256/H512/H520 is relied upon by the proc-macro (format!(\

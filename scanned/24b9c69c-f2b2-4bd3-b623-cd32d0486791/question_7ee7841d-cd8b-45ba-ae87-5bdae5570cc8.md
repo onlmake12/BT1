@@ -1,0 +1,1 @@
+[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match] Can an unprivileged operator-local user configure a block_filter Rhai script that builds an unbounded string (e.g., 'let s = \

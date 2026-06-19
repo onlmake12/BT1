@@ -1,0 +1,1 @@
+[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: impl_std_fmt!(Debug for H512) used via Pubkey Display in util/crypto/src/secp/pubkey.rs] Can a transaction submitter craft a transaction whose secp256k1 public key, when formatted via Pubkey Display (which calls write!(f, \
