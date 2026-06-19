@@ -1,1 +1,0 @@
-[File: 'util/logger-service/src/lib.rs'] [Function: Logger::new / CONTROL_HANDLE OnceLock re-init] Can an unprivileged test harness or operator scenario that initializes the logger twice (e.g., calling init() after init_for_test(), or two init() calls in integration tests) cause CONTROL_HANDLE.set(sender.clone()).expect(\
