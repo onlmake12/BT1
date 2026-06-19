@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: miner/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_1f55b1a0-71f1-4397-806c-b6fea5ef2a87?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/miner.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b2c1a962-8263-4ec5-9db6-3088d2bf9eec?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/dummy.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e070e7d9-6d22-4db4-b134-1a1110293645?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/eaglesong_simple.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_fd827eef-d44b-4fb4-b1c2-7c4d93dd54fe?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_cd2bb959-cff6-4938-b564-f503b87412c4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/behaviour.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_20a2c925-3ee6-4eac-80a0-e8226b893601?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/compress.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5b9ecf62-cf39-41b2-bfea-0687efb475e5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/errors.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_0054042d-894d-414a-9dbf-affa74409704?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6c0c19be-9524-4433-9d8f-db3d2be2ac1d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3a02867b-0ccb-462e-975a-9d4ad5c9d488?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network_group.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_681be160-65eb-4788-9040-6683617f2975?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4ea8a749-e84a-48fb-8fd8-5c2738545aa9?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_registry.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_663a6b56-cea3-4f99-8c8e-af0bfe1c3239?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/addr_manager.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_0d650961-bf98-4900-bce9-425547dfde37?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/anchors.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_66cabc12-117f-4ced-a014-541cae6d3924?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/ban_list.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_041f7786-3875-4121-a6dd-fe4da6727c9a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/browser.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b9d902b5-8598-4e68-a27e-6a4d976d45f4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d8b03e29-4390-4fb4-a593-cb75c7209f7f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_db.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_56fae08f-ed3d-4a23-b3e0-413d00d12e23?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_impl.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ec909e2d-5c94-46fb-b29f-c50d0aa2f376?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/types.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_dadd9aa4-e073-43da-89fa-5811cbb68bbf?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/disconnect_message.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f34f5170-2ca4-4ed4-bec1-424d56c32329?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/addr.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f5073802-70e2-484d-9baa-bc548c4a08ff?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bef13f86-c996-4b74-8206-a7d23f897e23?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/protocol.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bdb9688f-c3ff-4bbe-b97b-446ef42044e3?mode=deep",
+    "questions_generated": false
+  }
+]
