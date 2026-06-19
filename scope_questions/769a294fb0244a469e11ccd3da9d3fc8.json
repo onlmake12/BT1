@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: miner/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_81952e59-5be4-4f65-9ca0-f6668233ef3e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/miner.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_cda72365-a53c-4f62-a1ed-c2a9daff69ae?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/dummy.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_82dad2ab-e1c8-4a3b-b286-527c9d2c5b22?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/eaglesong_simple.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3df104d4-c94e-49e3-9b57-c5b1f3db172b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/mod.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e908f78e-7d2c-41c6-adcb-70943a64bd0a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/behaviour.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a4b7ecd9-ed34-44a9-8c96-f94c7f3094bc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/compress.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4d3045ae-5acc-4784-b54f-4e7286c25314?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/errors.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a5dc5c2d-1526-4060-80f7-c84ce868c46e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ec580173-c3a7-4e9a-b526-f32d242318b7?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a1dfd6e0-ae78-4b22-8d7e-7bc911abbcf9?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network_group.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ec6015dd-56b5-4047-954d-d810082af260?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c738dcaf-368e-4314-84d2-066b6dd1b939?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_registry.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2d9483aa-0355-4517-9dce-058272e299ea?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/addr_manager.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5c911a45-6a76-4eba-b4ea-1b737a1e0f4a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/anchors.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8a2365b7-4db8-453e-8a46-b4c59829eaca?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/ban_list.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e352d04d-e910-4995-a350-b0a3519befdc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/browser.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a00c7276-adc2-4040-a7a2-ecacc13afbc7?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/mod.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2b7b5ffa-5674-470c-bc61-df8fc5420d56?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_db.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_7bb69c73-b6b1-434e-928d-1f520a47bb75?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_impl.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_44ccf592-10c2-4a96-9251-a559802fc9e2?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/types.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_851316b3-dcc4-4d24-9507-f1b51dd92a72?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/disconnect_message.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d0fdff85-5edf-4415-bd9d-96f4de828e90?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/addr.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a1fa13da-4de5-42df-aac5-f3095321462e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/mod.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d8e67d31-4fac-4922-83ab-98e4606a23d5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/protocol.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d808b2ab-efd1-43c9-934d-977e6e09700c?mode=deep",
+    "questions_generated": false
+  }
+]
