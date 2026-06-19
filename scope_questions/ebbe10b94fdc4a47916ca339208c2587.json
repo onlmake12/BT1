@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: util/jsonrpc-types/src/pool.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_cb36e281-e1bf-4d4d-b8d0-fc4237ba8158?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/jsonrpc-types/src/primitive.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_86b4c211-7d16-4f70-ab97-91e5dd80e651?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/jsonrpc-types/src/proposal_short_id.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a78c8288-b2d9-484a-a8d8-85ef2b0279a5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/jsonrpc-types/src/subscription.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_53b9d113-ecc0-401f-99d4-7c3152b19443?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/jsonrpc-types/src/terminal.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_20f92e2e-df64-4a7f-81d0-54d1bf65aa46?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/jsonrpc-types/src/uints.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3af370b9-f899-40bd-84f8-0903f0e8fbbc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/launcher/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6443ad03-29cc-49a5-ac11-ed6049811859?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/components/get_blocks_proof.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_7642a714-ace5-456e-a0c6-80d48ca450b9?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/components/get_last_state.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a0acb863-cfbf-4f33-b163-e340e427bf17?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/components/get_last_state_proof.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_78eabe48-778d-4f27-b377-4076b3304d8d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/components/get_transactions_proof.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3ae91e02-8c60-4cc8-9cf9-494c8eb27dfd?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/components/mod.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5eab4eaf-8c77-4aad-8d55-9ab2694d3b81?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/constant.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6885dbf1-6b57-4e6b-8947-196c2736d767?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f95eee65-ad47-4f9b-a81f-e63b2d071a0a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/prelude.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_51140d22-8c62-4051-bfd3-7c589aa15ba1?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/light-client-protocol-server/src/status.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c5f45171-f77f-4920-9b43-a8a4f6f37707?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/logger-config/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_66af246d-dd2f-441e-8f23-d9d52f252431?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/logger-service/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_66a95805-7052-40f6-a79a-32606d39f4cc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/logger/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6f6a1dcf-3baf-42ac-a17a-ad5d4947741b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/memory-tracker/src/jemalloc.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bf564d1b-e384-4ef5-8c4d-7f9ee183a7bc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/memory-tracker/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_75b728fe-118a-4463-a5f6-50bb63fc16ed?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/memory-tracker/src/process.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_df2e29dd-1c87-4e2f-b47f-ec8627fdb176?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/memory-tracker/src/rocksdb.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b44fba3d-d68d-44b6-ac2a-33bfc677936f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/metrics-config/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_13630caa-de89-44c6-a465-e01da673fb64?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/metrics-service/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d9431ce0-57d0-4720-a8ce-41c98517febe?mode=deep",
+    "questions_generated": false
+  }
+]
