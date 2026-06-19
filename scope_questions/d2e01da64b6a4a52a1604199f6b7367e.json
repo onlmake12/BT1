@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: miner/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_05004aa0-5e3a-41a1-9785-1fcfeb3ad207?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/miner.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_38141d69-3d33-46bc-a220-5bf7510382a7?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/dummy.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_9c7ac726-7682-49f7-9eab-b9fe623e4c9d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/eaglesong_simple.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2dbdcf39-39d4-4bc3-9baa-7b7ae9a6ec9d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_355a760e-a37c-4b8d-a2c9-aee0f1de8473?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/behaviour.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a76e8237-ba63-4474-b2a8-7e228c8e8d64?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/compress.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d225748f-8a61-4ec4-9ae4-1d3bd3fc34f3?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/errors.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e6020469-a30d-4829-b65a-dd960aa320dc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bdf7291b-4a22-4cdd-8cea-de8e4d4071f6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_43c17c88-86c2-49f0-814f-1c7adb0ec8ce?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network_group.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_30cfe00f-5508-4d06-aae4-250ddc79f51b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2a7049a6-76f8-4e71-bb23-667d7d852ada?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_registry.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_580662c4-c9fc-4ad7-a3c8-d902c8a392c5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/addr_manager.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4acf7c5c-a0e2-430d-9205-bf94b46ad55e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/anchors.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5fc826f4-7f78-4f12-a7c3-6085bb35ac71?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/ban_list.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_047e781f-592b-4e57-b987-83752a396d29?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/browser.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_fc27b371-5d93-489e-a0d1-99831c2d817a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d16f1e21-a850-4681-ace9-7468335ba677?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_db.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_7bd8917f-be3f-4112-95d1-3fba699a8f6b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_impl.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c84b17a7-91a0-412d-a057-5297dcc3659b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/types.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_1e0f523a-defd-429c-9870-c07d3c5c2bd6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/disconnect_message.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e29708a6-0cc5-4abf-87ae-019846fe9a1f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/addr.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_91d5fa3c-d9be-4a17-b95e-dcee675c709d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c8349b7c-950d-4c6d-a758-077f5e81a701?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/protocol.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6bcedded-bb2b-4cd0-8d2c-a9c5f190f131?mode=deep",
+    "questions_generated": false
+  }
+]
