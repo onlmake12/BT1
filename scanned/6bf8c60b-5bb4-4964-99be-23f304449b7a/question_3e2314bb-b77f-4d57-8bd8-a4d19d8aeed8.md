@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs'] [Function: SQLXPool::postgres_init] Can an operator-local user under the precondition that the PostgreSQL backend is configured and `db_config.db_name` contains a double-quote character (e.g., `foo\
