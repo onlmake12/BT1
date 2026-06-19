@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: impl_std_fmt!(Display for H256/H512/H520)] Can an operator or monitoring tool that consumes CKB node logs observe that format!(\
