@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/lib.rs -> util/rich-indexer/src/store.rs'] [Function: fetch_count] Can an unprivileged RPC caller or operator-local user, under preconditions where table_name is derived from an unsanitized external input path, trigger the call sequence fetch_count(attacker_controlled_table_name) executing format!(\
