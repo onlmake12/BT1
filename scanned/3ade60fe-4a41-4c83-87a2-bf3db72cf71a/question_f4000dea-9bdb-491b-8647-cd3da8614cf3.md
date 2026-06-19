@@ -1,1 +1,0 @@
-[File: 'shared/src/types/header_map/backend.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: SledBackend::new (backend_sled.rs)] Can an operator-local user set `[sync.header_map] memory_limit` in `ckb.toml` to a byte value smaller than `size_of::<HeaderIndexView>()` (the `ITEM_BYTES_SIZE` constant), triggering the explicit `panic!(\

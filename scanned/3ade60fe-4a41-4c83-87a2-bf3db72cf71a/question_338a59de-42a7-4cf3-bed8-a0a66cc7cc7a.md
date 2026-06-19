@@ -1,1 +1,0 @@
-[File: 'shared/src/shared_builder.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: SharedBuilder::build -> SledBackend::new (via HeaderMap::new)] Can an operator-local user set `header_map_tmp_dir` to a path that does not exist or is not writable (e.g., `/nonexistent/path`), causing `SledBackend::new` to call `builder.tempdir_in(path).expect(\
