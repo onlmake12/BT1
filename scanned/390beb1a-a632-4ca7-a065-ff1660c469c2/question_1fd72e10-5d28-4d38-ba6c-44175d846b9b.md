@@ -1,1 +1,0 @@
-[File: 'store/src/db.rs -> Scope: Critical (15001 - 25000 points)'] [Function: ChainDB::get_migration_version (store/src/db.rs:115-119) + Migrations::check (db-migration/src/lib.rs:120-137)] Can an attacker who corrupts the MIGRATION_VERSION_KEY entry to contain non-UTF8 bytes cause `String::from_utf8(version_bytes.to_vec()).expect(\

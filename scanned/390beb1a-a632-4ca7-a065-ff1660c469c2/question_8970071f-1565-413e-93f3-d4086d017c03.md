@@ -1,1 +1,0 @@
-[File: 'store/src/db.rs -> Scope: Critical (15001 - 25000 points)'] [Function: ChainDB::get / ChainStore::get_iter (store/src/db.rs:41-49)] Can an unprivileged block relayer, under conditions where the underlying RocksDB instance returns an I/O or corruption error (e.g., disk full, SST file corruption, column-family handle invalid), trigger the `.expect(\
