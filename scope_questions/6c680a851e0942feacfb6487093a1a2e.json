@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: network/src/protocols/discovery/state.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f5557d8b-b818-4dee-babd-6ad208ab08df?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/feeler.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2b6e5f04-215b-41a0-8325-2ec199b9e3f4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/hole_punching/component/connection_request.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8f91eb03-3779-4e28-8f4a-7b8b41b7a890?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/hole_punching/component/connection_request_delivered.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_56c9648b-bff4-4116-83ae-40496bcee676?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/hole_punching/component/connection_sync.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_46a49a1c-3605-4ed8-b548-d6e472aa08e1?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/hole_punching/component/mod.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d5176ba1-228b-46d7-b44d-3bc21fad2d23?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/hole_punching/mod.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6c4b8d43-ef08-4080-bd4c-109d84991e48?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/hole_punching/status.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b43d71c9-a436-45fb-9d4a-fba72a973df6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/identify/mod.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_347846b7-9eec-4136-8081-4cfbdf581599?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/identify/protocol.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_0073ecf1-1c80-4f8f-8cb7-cc02e93a1173?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/mod.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f3956a67-3d4a-4521-be84-afb7b68c47cb?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/ping.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_cb5faef1-0780-4018-82b2-1839dd37ac5a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/support_protocols.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_fb1d92f8-67a9-44ef-8c06-76853be6c2ac?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/proxy.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d92baf75-78fe-4d7b-a940-2ca055fc835e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/services/dns_seeding/mod.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_85e04bd5-92c3-454c-a754-19e1da913328?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/services/dns_seeding/seed_record.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a804a86a-1bac-40c5-9ca4-5223cc36e73d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/services/dump_peer_store.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5f8c52da-4d1a-4d13-b35c-c2dd45ef70f0?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/services/mod.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_0aae26b6-2980-41b9-8b67-cf8835934c86?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/services/outbound_peer.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3fca1d80-1d5a-4d78-9a4b-a60af49e5a73?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/services/protocol_type_checker.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_35cf7974-6db7-4e07-99b9-72a52a0e813b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: notify/src/lib.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_324aadc1-b20f-449a-bb0b-53c0882bd76a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: pow/src/dummy.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5e433894-79e3-4c9e-8524-db7b2714012b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: pow/src/eaglesong.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d92ec184-f7ac-47c6-8552-4ef8cf829cd6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: pow/src/eaglesong_blake2b.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d5d25dc2-0540-43d7-ba26-ff5bab06a591?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: pow/src/lib.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_95908a84-848b-4abd-b516-c36d1d4c5125?mode=deep",
+    "questions_generated": false
+  }
+]
