@@ -1,1 +1,0 @@
-[File: 'util/build-info/src/lib.rs'] [Function: Version::is_dirty / SentryConfig::init] Can an unprivileged local operator, by building CKB with `COMMIT_DESCRIBE` set to a string that ends with the byte sequence `-dirty` but contains multi-byte Unicode characters before the suffix (e.g., `\\u{1F4A9}-dirty`), under the precondition that `is_dirty()` uses `describe.ends_with(\

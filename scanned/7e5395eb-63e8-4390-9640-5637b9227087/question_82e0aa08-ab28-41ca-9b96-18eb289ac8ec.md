@@ -1,1 +1,0 @@
-[File: 'util/build-info/src/lib.rs'] [Function: Version::long / debug! macro in run_app] Can an unprivileged local operator, by building CKB with `COMMIT_DESCRIBE` or `COMMIT_DATE` set to a string containing format specifier characters (e.g., `%s`, `%n`, `{}`), under the precondition that `run_app` calls `debug!(\
