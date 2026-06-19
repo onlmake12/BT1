@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: script/src/syscalls/vm_version.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e47611dc-c286-491b-9c6c-b74366004bfa?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: script/src/syscalls/wait.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bf643631-0d59-40f1-a468-8126e422129e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: script/src/syscalls/write.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f36cfe7a-55bb-43e4-8498-6d7aa5249348?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: script/src/type_id.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_346875c2-496c-4e15-ad88-2b8475be27a5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: script/src/types.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f6018716-03db-4126-b11f-6417bce1a2d9?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: script/src/verify.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_3b86ca63-93ea-489d-a1d9-33bb0191012b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: script/src/verify_env.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_147041e5-97aa-4edd-bf88-e8a984c4c67f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/block_status.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_fcc2fa71-ffa8-43fc-9e3e-eb413fd6ccda?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/chain_services_builder.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_975f9330-87bf-4564-80b0-9bc522a41890?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_130c5a16-3c05-47bd-baec-e97920a8c3fb?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/shared.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_28f74f6f-cd81-4de6-ba85-7797312bfd3c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/shared_builder.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_079b9a04-cd3a-4060-9e4c-a27a231d756c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/types/header_map/backend.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5e64ff50-6f65-44c5-bb9f-54003971b7c0?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/types/header_map/backend_sled.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b6043b0e-8776-44d4-935e-4718f04d8bec?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/types/header_map/kernel_lru.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bcc462fa-e5b0-4362-bcb7-62dc3d2d3799?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/types/header_map/memory.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f57bde6a-da13-4cf1-8f86-a9ebcfb668fe?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/types/header_map/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bbb7d7e3-a779-4925-8930-aacb9f495530?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: shared/src/types/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_00651ad1-df5a-46c9-ad6d-6215cc714421?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: spec/src/consensus.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_299a182e-9c34-44eb-b162-fb2e8870b90c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: spec/src/error.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_674ee5fb-afaf-4dd1-9f34-626f47a4eca9?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: spec/src/hardfork.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_37d147f5-8a05-4959-9b65-40458beb1bfe?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: spec/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_06adad8b-b643-4f8c-961f-4e6823f8f5a1?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: spec/src/versionbits/convert.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ed6d1ed4-9f1f-4171-9e09-e9a9fdde6842?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: spec/src/versionbits/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6f01fb21-bbed-4fca-a99e-9909ebca2e17?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: src/main.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_14c4f3fb-c426-412b-935b-805a95973e19?mode=deep",
+    "questions_generated": false
+  }
+]
