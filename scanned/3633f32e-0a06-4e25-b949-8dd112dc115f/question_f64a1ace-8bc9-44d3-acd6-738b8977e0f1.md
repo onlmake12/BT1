@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/service.rs'] [Function: RichIndexerService::new connect expect panic] Can an unprivileged local operator crash the CKB node at startup by providing a rich-indexer config pointing to an inaccessible or corrupt SQLite file path, causing the block_on(store.connect(...)).expect(\
