@@ -1,0 +1,1 @@
+[File: 'network/src/protocols/identify/mod.rs' + 'rpc/src/module/net.rs'] [Function: add_node] Can an unprivileged local RPC caller invoke `add_node(peer_id='', address='/ip4/1.2.3.4/tcp/8114')`, causing `format!(\

@@ -1,0 +1,1 @@
+[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: CustomFilters::new, engine.compile] Can an unprivileged operator-local user configure a syntactically invalid block_filter or cell_filter string in ckb.toml causing engine.compile(block_filter).expect(\

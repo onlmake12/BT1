@@ -1,0 +1,1 @@
+[File: 'util/rich-indexer/src/service.rs'] [Function: SQLXPool::fetch_count unsanitized table_name] Can an unprivileged operator-local caller who controls the table_name argument to fetch_count inject arbitrary SQL via the format!(\
