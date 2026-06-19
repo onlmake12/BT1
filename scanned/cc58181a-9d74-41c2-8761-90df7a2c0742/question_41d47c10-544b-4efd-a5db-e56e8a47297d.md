@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/stats.rs'] [Function: print_miner_statics] Can an operator running `ckb stats` on a chain where a block's cellbase transaction has zero witnesses (witnesses list is empty) cause the `.expect(\
