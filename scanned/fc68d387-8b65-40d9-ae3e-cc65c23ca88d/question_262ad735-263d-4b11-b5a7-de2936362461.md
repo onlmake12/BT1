@@ -1,1 +1,0 @@
-[File: 'freezer/src/lib.rs -> freezer/src/freezer.rs::Freezer::open'] [Function: Freezer::open lines 59-65] Can a local operator write a frozen block flat file whose last entry deserializes as a valid molecule Block but has count_extra_fields() > 1, causing Freezer::open to return Err(internal_error(\

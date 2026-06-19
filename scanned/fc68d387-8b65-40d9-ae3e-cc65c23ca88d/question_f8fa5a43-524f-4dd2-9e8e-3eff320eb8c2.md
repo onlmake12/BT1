@@ -1,1 +1,0 @@
-[File: 'freezer/src/lib.rs -> store/src/store.rs::ChainStore::get_transaction_with_info'] [Function: get_transaction_with_info lines 325-329] Can a local operator corrupt a frozen block flat file so that `freezer.retrieve(tx_info.block_number).expect(\

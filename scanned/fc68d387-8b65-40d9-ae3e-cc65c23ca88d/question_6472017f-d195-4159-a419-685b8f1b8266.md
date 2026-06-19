@@ -1,1 +1,0 @@
-[File: 'freezer/src/lib.rs -> freezer/src/freezer.rs::Freezer::truncate'] [Function: Freezer::truncate line 166] Can a state inconsistency between FreezerFiles::truncate and the subsequent FreezerFiles::retrieve call inside Freezer::truncate cause `.expect(\
