@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: miner/src/lib.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_59fa1ca1-9733-48c5-9366-420f89a9b0ed?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/miner.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8595e6e0-0410-4f55-9bbc-acdc2578fba8?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/dummy.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_7f2e7bd6-ab45-4f1e-84a7-97b8eb391ff6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/eaglesong_simple.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_cef24a35-5b64-40c9-94c3-388525d8c0a4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: miner/src/worker/mod.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d09535a0-8393-4277-b20e-7989df490776?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/behaviour.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_08c742de-6cef-4645-b8fb-fedc65dff091?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/compress.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c868646c-4095-438b-90a6-d6bf42922331?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/errors.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b81a8586-b6ff-4bd6-9adf-53e922647838?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/lib.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d1c6c598-dfc6-45e5-ab26-3fc3eaff7939?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_9a3bdb47-aefb-4f65-a0bd-fb0949b78e99?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/network_group.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_edcde1c6-0160-437d-960c-f79eaa9832c6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_09ddcf53-1ae7-4c11-a6f6-10b3df1510f0?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_registry.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2adf317a-06b8-4f6f-b9f2-27acc4127463?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/addr_manager.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_cda7c0c8-e3a1-4411-9429-9e152f490583?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/anchors.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a302d12e-221d-42cf-9e7a-0977f5384130?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/ban_list.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_07eec596-09ec-4bdf-9a86-2c0024f833bb?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/browser.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_de4fe600-478f-48d5-badf-3311ecd004be?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/mod.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_32b5d592-9ae3-4ef7-b14d-c58219291069?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_db.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_0b4f4118-6fbb-4ba1-9594-093bad207dea?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/peer_store_impl.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c9a1dac4-90a5-44b5-9067-0cd125778f8c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/peer_store/types.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_87ee1945-0440-4d38-a702-99fe4d3f1420?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/disconnect_message.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_08f91fb0-4bf7-4ce4-bb9a-ef5f5d2a42db?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/addr.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_16dbfabf-bf9f-4408-8825-c42e8d18ac08?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/mod.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_c77ac601-c846-4884-88f1-b22dcd8745d8?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: network/src/protocols/discovery/protocol.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bddb422d-077c-42f3-9138-bbf25783b238?mode=deep",
+    "questions_generated": false
+  }
+]
