@@ -1,0 +1,23 @@
+[
+  "'File Name: util/types/src/extension.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/global.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/prelude.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/utilities/block_filter.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/utilities/difficulty.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/utilities/merkle_mountain_range.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/utilities/merkle_tree.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: util/types/src/utilities/mod.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/contextual/src/contextual_block_verifier.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/contextual/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/contextual/src/uncles_verifier.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/block_verifier.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/cache.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/convert.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/error.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/genesis_verifier.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/header_verifier.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/src/transaction_verifier.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+  "'File Name: verification/traits/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'"
+]

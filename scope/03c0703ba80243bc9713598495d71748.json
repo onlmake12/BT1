@@ -1,0 +1,23 @@
+[
+  "'File Name: util/types/src/extension.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/global.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/prelude.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/utilities/block_filter.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/utilities/difficulty.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/utilities/merkle_mountain_range.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/utilities/merkle_tree.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: util/types/src/utilities/mod.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/contextual/src/contextual_block_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/contextual/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/contextual/src/uncles_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/block_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/cache.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/convert.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/error.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/genesis_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/header_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/src/transaction_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'",
+  "'File Name: verification/traits/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'"
+]
