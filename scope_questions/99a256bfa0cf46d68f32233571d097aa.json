@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: sync/src/relayer/transaction_hashes_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8c9b0cf1-72ba-4702-a4ec-1250d9f3da07?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/relayer/transactions_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2286e86f-d7ba-47f8-bc2c-8425aacefa1d?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/status.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_16d81db7-ce7b-48a4-a6b5-56922922582e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/block_fetcher.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a1e78349-9e5c-4de3-a1b3-7466acec090e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/block_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8d03c428-4d7f-4c8b-9e23-32b3b836c9cc?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/get_blocks_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_542f56ea-32ca-467e-a598-7ad081d84c47?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/get_headers_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bd4b0509-d1d8-4a9d-89b2-023c118658ff?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/headers_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b319ed29-e705-462c-93ef-fcb8e70e3b4e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/in_ibd_process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e6ecf329-5a01-4573-a673-d854e87a7b18?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/synchronizer/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_efb49062-21b6-4996-a72f-3e9da9382cfd?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/types/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_28cd8c16-36df-42c1-9a7d-2cbbb6c24c9a?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: sync/src/utils.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f8dedb67-fae0-4fb9-996b-9c977568e07f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: traits/src/cell_data_provider.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6bc7dafe-afaf-4663-97a7-c4df7f60ef74?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: traits/src/epoch_provider.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_76c859d5-8574-4323-8fcc-c12eac5155fb?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: traits/src/extension_provider.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8c74e156-bfcd-4cf5-9a79-c4305f59d8a0?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: traits/src/header_provider.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_bc09bbb0-10da-420e-ae98-b3e2fe9ad4f1?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: traits/src/lib.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_e58be096-c6a3-4012-9541-0d1f18a18859?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/block_assembler/candidate_uncles.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ff408f15-8879-4d05-a281-0929173e1c12?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/block_assembler/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2fbdb6c4-8d35-417c-98ab-2a3a7318f982?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/block_assembler/process.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4a3886da-15a9-4435-9700-7b9ce24dd3f4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/callback.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_1230f72e-6eb2-4ba0-9f2f-a4779eab2c20?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/component/edges.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_ea0d32e1-f8dd-45fe-be56-62b1b8ce8f3e?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/component/entry.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_a9b27c50-cb8d-4a1a-baaa-44fefcdca77b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/component/links.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2c6d67f8-9dfb-46af-82ea-8c3d186233b5?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: tx-pool/src/component/mod.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4b484004-2c6b-4274-bd6b-b2c57009975c?mode=deep",
+    "questions_generated": false
+  }
+]
