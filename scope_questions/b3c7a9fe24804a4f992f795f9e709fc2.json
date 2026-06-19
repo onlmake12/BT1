@@ -1,0 +1,127 @@
+[
+  {
+    "question": "'File Name: util/app-config/src/configs/network_alert.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_64159422-28f2-4e9e-85f2-c14973169789?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/configs/notify.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_6a041e2c-bdf5-4915-97ac-9152012e82e7?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/configs/rich_indexer.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8b5e49a6-7957-4373-a19f-28ac8129473b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/configs/rpc.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_97fe3512-2924-4d04-8bd8-186a97edf4e4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/configs/store.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_135a9845-3d54-4845-a78e-f5abb6de171c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/configs/tx_pool.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_8f0d2b67-d0ad-41af-9f47-549912580b72?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/exit_code.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_1b8e7c30-b892-4291-a6f6-09183df1e64b?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/legacy/mod.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_dd41f488-b66f-4e65-8c3f-fe383ce30a59?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/legacy/store.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d0633d00-c9c5-448c-af2b-07005918e750?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/legacy/tx_pool.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_078da43b-23f9-44ca-867e-df78e4da995f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_dcd704ed-6353-42ff-b656-c086e7fd0fbb?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/app-config/src/sentry_config.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_80f49272-0d57-4830-a067-bf81265975b0?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/build-info/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_5fb766d6-852e-4d65-a6fc-24b05891e4c6?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/chain-iter/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_d70b8e42-a160-4296-aeb9-0d580ff2d66c?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/channel/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_70670c57-387f-41aa-ae7f-e8f000f82cc2?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/consensus.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_fe466b42-b9f3-4a1d-b957-20ee54ff5667?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/default_assume_valid_target.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_06f9bd9f-ae29-4a8b-b997-e787ce376fc7?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/hardfork/mainnet.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_57aaaac8-d9f6-4a52-a2f6-8bd947abf1e4?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/hardfork/mod.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_4ab0075a-c52d-4a7f-92d5-5df17527d50f?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/hardfork/testnet.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_b45652cd-eadd-43c8-8419-71a236ffa5a1?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/latest_assume_valid_target.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_2e84cad8-7871-4ad6-8d15-edc1951e27aa?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/lib.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_658fc5a0-e307-4da1-840f-735e16fee167?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/softfork/mainnet.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_89ffffa8-a3e5-4c43-940a-5ba6d1d8f3d8?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/softfork/mod.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_f1b0e957-3738-4673-8262-4fc94c181f79?mode=deep",
+    "questions_generated": false
+  },
+  {
+    "question": "'File Name: util/constant/src/softfork/testnet.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'",
+    "url": "https://deepwiki.com/search/-generate-exploitfocused-secur_1934ecdd-9016-4a3c-9f2e-3fce0f827b55?mode=deep",
+    "questions_generated": false
+  }
+]
