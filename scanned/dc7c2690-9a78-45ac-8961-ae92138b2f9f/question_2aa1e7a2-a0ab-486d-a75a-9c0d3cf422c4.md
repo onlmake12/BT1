@@ -1,0 +1,1 @@
+[File: 'network/src/protocols/ping.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: PingHandler::init] Can a failure of either `set_service_notify` call in `init` (which is silently swallowed with `warn!(\
