@@ -1,0 +1,1 @@
+[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init / interactive block_assembler_message prompt] Can an unprivileged local operator running `ckb init -i`, when prompted for 'message:', supply an arbitrary string (no `is_hex` validation applied in interactive mode at line 79-80) containing `\
