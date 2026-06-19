@@ -1,1 +1,0 @@
-[File: 'network/src/peer.rs -> Scope: Note (0-500 points). Any local RPC API crash'] [Function: add_node / multiaddr parse / format! injection] Can an unprivileged local RPC caller supply a peer_id containing a '/' character or multiaddr protocol keyword (e.g., 'tcp/8114') to add_node, causing the format!(\
