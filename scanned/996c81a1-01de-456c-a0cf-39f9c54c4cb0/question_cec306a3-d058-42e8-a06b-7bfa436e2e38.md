@@ -1,0 +1,1 @@
+[File: 'chain/src/lib.rs' -> 'chain/src/orphan_broker.rs'] [Function: OrphanBroker::clean_expired_orphans] Can a local operator crash the node's periodic orphan-cleanup timer (fired every 60 seconds in `ChainService::start_process_block`) by engineering a DB state where `get_tip_header()` returns `None`, causing `.expect(\

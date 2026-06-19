@@ -1,0 +1,1 @@
+[File: 'chain/src/lib.rs' -> 'chain/src/verify.rs'] [Function: ConsumeUnverifiedBlockProcessor::find_fork_until_latest_common] Can a local CLI operator crash the node by importing a block whose ancestor chain diverges at a point where `get_block_hash` or `get_block` returns `None` for an expected stored block, causing `.expect(\

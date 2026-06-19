@@ -1,0 +1,1 @@
+[File: 'util/jsonrpc-types/src/indexer.rs'] [Function: IndexerSearchKey / IndexerSearchMode deserialization -> get_cells (IndexerHandle)] Can an unprivileged RPC caller submit a get_cells request with script_search_mode set to \

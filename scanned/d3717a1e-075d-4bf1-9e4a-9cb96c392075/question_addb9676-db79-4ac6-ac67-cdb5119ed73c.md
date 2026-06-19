@@ -1,0 +1,1 @@
+[File: 'ckb-bin/src/helper.rs -> Scope: Note (0-500 points). Any local command line crash'] [Function: prompt / cross-module: setup.rs::run, cli.rs] Can an unprivileged local operator pass `--assume-valid-target` with a trailing comma (e.g., `\

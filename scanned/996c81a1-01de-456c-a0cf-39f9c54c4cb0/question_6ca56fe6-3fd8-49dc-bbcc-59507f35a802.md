@@ -1,0 +1,1 @@
+[File: 'chain/src/lib.rs' -> 'chain/src/verify.rs'] [Function: ConsumeUnverifiedBlockProcessor::reload_proposal_table] Can a local CLI operator crash the node during a reorg by engineering a DB state where `self.shared.store().get_block_hash(bn)` or `get_block(&hash)` returns `None` for a block number in the proposal window range, causing `.expect(\

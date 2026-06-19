@@ -1,0 +1,1 @@
+[File: 'ckb-bin/src/helper.rs -> Scope: Note (0-500 points). Any local command line crash'] [Function: prompt] Can an unprivileged local operator running `ckb init -i` (interactive mode) with stdout redirected to `/dev/full` trigger the `stdout.flush().expect(\

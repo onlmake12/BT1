@@ -1,0 +1,1 @@
+[File: 'ckb-bin/src/helper.rs -> Scope: Note (0-500 points). Any local command line crash'] [Function: prompt] Can an unprivileged local operator running `ckb reset-data --database` with stdout redirected to a broken pipe (e.g., `ckb reset-data --database | head -0`) trigger the `write!(stdout, \
