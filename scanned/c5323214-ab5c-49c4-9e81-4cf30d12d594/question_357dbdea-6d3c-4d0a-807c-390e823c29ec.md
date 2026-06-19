@@ -1,1 +1,0 @@
-[File: 'script/src/types.rs'] [Function: LazyData::access] Can an unprivileged script author under preconditions where a concurrent verifier thread panics while holding the write lock on a LazyData RwLock (e.g., during a parallel script group verification) trigger subsequent calls to LazyData::access() to return ScriptError::Other(\
