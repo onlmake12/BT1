@@ -1,1 +1,0 @@
-[File: 'util/migrate/src/migrations/add_chain_root_mmr.rs -> Scope: High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node'] [Function: AddChainRootMMR::migrate / version string lexicographic ordering collision] Can a future migration with a version string that lexicographically sorts before `\
