@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/impls.rs'] [Function: H256::from_str in setup.rs default assume_valid_target] Can an unprivileged local operator under the precondition of running `ckb run` on mainnet or testnet without `--assume-valid-target` trigger a panic via `setup.rs:93/96` where `H256::from_str(&target[2..]).expect(\

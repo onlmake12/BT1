@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/impls.rs'] [Function: from_trimmed_str with len == bytes_size * 2 and valid non-zero first char] Can an unprivileged caller under the precondition of passing a full-length trimmed hex string (64 chars for H256) whose first character is non-zero (e.g., `\
