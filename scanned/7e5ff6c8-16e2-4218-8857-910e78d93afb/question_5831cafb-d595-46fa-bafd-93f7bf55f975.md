@@ -1,0 +1,1 @@
+[File: 'util/app-config/src/sentry_config.rs'] [Function: before_send] Can an unprivileged attacker who can influence a panic message (e.g., via a crafted RPC argument or config value that triggers a `panic!` containing the substring `\

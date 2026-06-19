@@ -1,0 +1,1 @@
+[File: 'script/src/types.rs'] [Function: DataPieceId::TryFrom source=3 (CellDep) place=1] Can an unprivileged script author under preconditions where a V2 script calls a syscall with source=CKB_SOURCE_CELL_DEP (3) and place=1 (witness) trigger TryFrom to return Err(\
