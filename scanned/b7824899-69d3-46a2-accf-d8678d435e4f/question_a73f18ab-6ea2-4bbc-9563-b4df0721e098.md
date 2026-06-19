@@ -1,1 +1,0 @@
-[File: 'network/src/protocols/mod.rs' + 'network/src/protocols/identify/mod.rs'] [Function: IdentifyProtocol::disconnected (identify/mod.rs:239-248)] Can a race condition between the p2p session teardown and the identify protocol's disconnected() callback cause the .expect(\
