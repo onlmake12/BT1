@@ -1,1 +1,0 @@
-[File: 'util/migrate/src/migrations/set_2019_block_cycle_zero.rs'] [Function: BlockExt2019ToZero::migrate / get_block_header parent chain traversal (lines 96-98)] Can a chain with a gap in `COLUMN_BLOCK_HEADER` (e.g., due to a previous truncation or DB corruption) cause `db_txn.get_block_header(&header.parent_hash()).expect(\
