@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match / is_cell_filter_match] Can an operator-local user configure a filter script that returns a non-boolean value (e.g., an integer `42` or a string `\

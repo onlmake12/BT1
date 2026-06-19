@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: register_ops! / to_uint] Can an operator-local user configure a filter script that performs U256 division by zero via the registered `/` operator (e.g., `\
