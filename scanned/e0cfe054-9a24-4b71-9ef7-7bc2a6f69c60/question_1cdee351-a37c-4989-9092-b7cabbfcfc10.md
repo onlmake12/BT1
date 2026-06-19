@@ -1,1 +1,0 @@
-[File: 'traits/src/cell_data_provider.rs'] [Function: load_cell_data (dep group expansion)] Can an unprivileged transaction submitter craft a dep-group cell where mem_cell_data is set to a valid OutPointVec (used by resolve_dep_group at util/types/src/core/cell.rs:662-679 which calls .expect(\
