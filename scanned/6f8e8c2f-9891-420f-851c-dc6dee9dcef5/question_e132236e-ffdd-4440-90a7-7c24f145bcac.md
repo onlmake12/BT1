@@ -1,1 +1,0 @@
-[File: 'miner/src/worker/mod.rs' + 'miner/src/worker/dummy.rs'] [Function: start_worker / Dummy::try_new] Can an operator-local user configure DummyConfig::Uniform { low: 5000, high: 5000 } (low == high), causing dist::Uniform::new(5000, 5000) to panic inside Dummy::try_new, which is then propagated through .expect(\
