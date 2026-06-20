@@ -1,0 +1,1 @@
+Let me look at the reward calculator and block verifier more carefully for the analog.
