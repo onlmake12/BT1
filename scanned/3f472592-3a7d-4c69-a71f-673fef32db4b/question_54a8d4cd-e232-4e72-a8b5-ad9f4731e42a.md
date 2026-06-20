@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/lib.rs -> indexer.rs'] [Function: IndexerRange start/end validation] Can an unprivileged RPC caller under the precondition of calling get_cells or get_transactions with an IndexerSearchKeyFilter containing an inverted IndexerRange (e.g., block_range=[\
