@@ -1,0 +1,1 @@
+Let me look at the `FeeCalculator` in the verification module and how fees are computed for DAO transactions.
