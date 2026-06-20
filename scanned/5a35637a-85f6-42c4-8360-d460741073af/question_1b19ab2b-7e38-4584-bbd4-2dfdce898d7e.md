@@ -1,1 +1,0 @@
-[File: 'util/instrument/src/lib.rs -> util/instrument/src/import.rs'] [Function: Import::read_from_json / serde_json panic on any non-first line] Can an operator-local attacker supply a JSONL where any line after the first is malformed JSON, causing `serde_json::from_str(line).expect(\
