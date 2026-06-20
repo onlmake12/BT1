@@ -1,1 +1,0 @@
-[File: 'spec/src/versionbits/mod.rs'] [Function: ThresholdState::from_u8 / Cache::decode_value] Can an unprivileged operator-local user corrupt the on-disk cacache softfork state file (e.g., write a byte value >= 5 to the mmap-backed cache entry for any DeploymentPos) so that a subsequent call to Cache::get -> decode_value -> ThresholdState::from_u8 hits the `_ => panic!(\
