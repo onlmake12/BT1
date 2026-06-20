@@ -1,1 +1,0 @@
-[File: 'util/types/src/constants.rs -> Scope: Note (0-500 points). Any local RPC API crash'] [Function: JsonUintVisitor::visit_str / Uint32 deserializer] Can an unprivileged RPC caller send a version field with redundant leading zeros (e.g., \
