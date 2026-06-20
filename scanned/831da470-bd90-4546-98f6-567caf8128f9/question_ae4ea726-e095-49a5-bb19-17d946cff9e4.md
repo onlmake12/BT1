@@ -1,1 +1,0 @@
-[File: 'util/types/src/core/error.rs'] [Function: is_malformed_from_verification / downcast_ref expect] Can a future code change introduce an `ErrorKind::Transaction` error whose underlying type is not `TransactionError` (e.g., a wrapper or a different error type mapped to `ErrorKind::Transaction`), causing the `.expect(\

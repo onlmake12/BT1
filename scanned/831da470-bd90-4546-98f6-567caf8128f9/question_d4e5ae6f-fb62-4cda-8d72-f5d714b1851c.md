@@ -1,1 +1,0 @@
-[File: 'util/types/src/core/error.rs'] [Function: TransactionError display formatting / error propagation chain] Can a remote peer trigger repeated expensive `Display` formatting of large `TransactionError` variants (e.g., `InsufficientCellCapacity` with hex-formatted `Capacity` values, or `OutputsSumOverflow`) through the `ban_malformed` path which calls `format!(\

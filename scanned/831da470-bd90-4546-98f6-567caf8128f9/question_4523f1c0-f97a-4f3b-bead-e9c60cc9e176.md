@@ -1,1 +1,0 @@
-[File: 'util/types/src/core/error.rs'] [Function: is_malformed_from_verification (util/types/src/core/tx_pool.rs)] Can a remote tx-pool submitter flooding the node with Script-kind rejections under high-throughput conditions trigger repeated heap allocation via `format!(\
