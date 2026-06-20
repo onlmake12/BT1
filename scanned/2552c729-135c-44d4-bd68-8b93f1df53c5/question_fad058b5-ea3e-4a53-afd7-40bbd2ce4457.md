@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/mod.rs -> stats.rs'] [Function: stats::print_miner_statics] Can an unprivileged operator running `ckb stats --from N --to M` on a DB that contains a block whose cellbase transaction has zero witnesses (or whose witness[0] raw bytes are not a valid molecule-encoded CellbaseWitness) trigger the `.expect(\

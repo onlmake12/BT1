@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/mod.rs -> helper.rs -> migrate.rs / reset_data.rs'] [Function: helper::prompt] Can an operator run `ckb migrate` or `ckb reset-data` in a shell pipeline where stdout is closed (e.g., `ckb migrate 2>/dev/null >/dev/null` with stdout explicitly closed), causing `write!(stdout, \
