@@ -1,1 +1,0 @@
-[File: 'script/src/types.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: ScriptGroupType serde deserialization] Can an unprivileged RPC caller submitting a JSON-RPC request that includes a ScriptGroupType field with an unknown string value (e.g., \
