@@ -1,1 +1,0 @@
-[File: 'error/src/util.rs'] [Function: def_error_base_on_kind!/Display + AnyError Debug] Can an unprivileged RPC caller cause a panic in `RPCError::custom_with_error` (rpc/src/error.rs:168-176) by triggering `format!(\
