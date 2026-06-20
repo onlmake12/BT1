@@ -1,0 +1,1 @@
+I need to carefully examine the exact logic of both verifiers and how the block assembler interacts with them.
