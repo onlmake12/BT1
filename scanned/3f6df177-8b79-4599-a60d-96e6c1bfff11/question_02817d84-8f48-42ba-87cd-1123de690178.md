@@ -1,1 +1,0 @@
-[File: 'util/gen-types/src/conversion/primitive.rs'] [Function: 'impl Pack<packed::Bytes> for str' / 'impl From<&str> for packed::Bytes' at lines 327-337 and 'impl<r> packed::BytesReader<r>::as_utf8_unchecked'
