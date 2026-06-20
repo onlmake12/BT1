@@ -1,1 +1,0 @@
-[File: 'resource/src/template.rs'] [Function: Template::render_to / writeln / spec branch format string construction line 165] Can an unprivileged programmatic caller of TemplateContext::new supply a spec name that is a prefix of another spec name (e.g., spec='main' when 'mainnet' branches exist) under the precondition that spec_branch is constructed as format!(\
