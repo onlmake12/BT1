@@ -1,1 +1,0 @@
-[File: 'shared/src/types/header_map/backend_sled.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: SledBackend::contains_key] Can a sled I/O error (e.g. caused by the underlying tmpdir being deleted by an external process or the OS reclaiming the tmpfs) during a call to `self.db.contains_key(key.as_slice())` cause `.expect(\

@@ -1,1 +1,0 @@
-[File: 'shared/src/types/header_map/backend_sled.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: SledBackend::new / tempfile::Builder::tempdir_in] Can an unprivileged local operator, by setting `tmp_dir` in `ckb.toml` to a path that does not exist or is not writable (e.g. `/nonexistent/path`), cause `SledBackend::new` to call `.expect(\
