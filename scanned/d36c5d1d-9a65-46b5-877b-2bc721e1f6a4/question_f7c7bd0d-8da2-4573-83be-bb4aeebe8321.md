@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/indexer/mod.rs'] [Function: append / pool RwLock write panic] Can an unprivileged block relayer under preconditions where a previous thread panicked while holding the pool RwLock write guard trigger AsyncRichIndexer::append -> self.pool.as_ref().map(|p| p.write().expect(\
