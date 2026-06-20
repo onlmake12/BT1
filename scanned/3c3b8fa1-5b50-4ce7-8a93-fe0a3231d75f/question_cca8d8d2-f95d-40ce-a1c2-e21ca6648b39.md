@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs -> Scope: High (10001-15000)'] [Function: register_ops macro / U256 division] Can an unprivileged transaction sender craft a transaction whose output_data or script args, when accessed in a cell_filter Rhai script that performs U256 division (e.g., 'to_uint(output_data) / to_uint(\

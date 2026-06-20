@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs -> Scope: High (10001-15000)'] [Function: is_cell_filter_match (Rhai string operations on output_data)] Can an unprivileged transaction sender craft a transaction with a large output_data (e.g., 100 KB), causing format!(\
