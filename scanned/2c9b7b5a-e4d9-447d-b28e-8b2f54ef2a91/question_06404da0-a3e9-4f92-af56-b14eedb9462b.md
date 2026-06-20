@@ -1,1 +1,0 @@
-[File: 'util/light-client-protocol-server/src/prelude.rs'] [Function: LightClientProtocolReply::reply / message.to_enum() at line 18] Can an unprivileged caller (or a bug in server-side message construction) cause packed::LightClientMessage::to_enum() to be called on a message whose internal item_id is out of the valid range [0, 7], triggering the panic!(\
