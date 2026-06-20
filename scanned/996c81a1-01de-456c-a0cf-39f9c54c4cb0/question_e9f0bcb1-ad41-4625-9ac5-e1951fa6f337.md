@@ -1,1 +1,0 @@
-[File: 'chain/src/lib.rs' -> 'chain/src/verify.rs'] [Function: ConsumeUnverifiedBlockProcessor::alignment_fork] Can a local CLI operator crash the node by importing a fork block whose ancestor chain is partially missing from the DB, causing `self.shared.store().get_block_hash(bn).expect(\
