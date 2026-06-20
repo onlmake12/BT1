@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/setup.rs'] [Function: Setup::reset_data] Can an unprivileged local operator configure `indexer.rich_indexer.store` to a filesystem root path (e.g., `/`) in the CKB config file, then invoke `ckb reset-data`, causing `.parent().expect(\
