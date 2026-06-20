@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init / interactive mode missing H256 validation (lines 52-56)] Can an operator-local user running `ckb init -i` enter an arbitrary non-hex string (e.g., `not_a_hash` or a string containing TOML metacharacters like `\
