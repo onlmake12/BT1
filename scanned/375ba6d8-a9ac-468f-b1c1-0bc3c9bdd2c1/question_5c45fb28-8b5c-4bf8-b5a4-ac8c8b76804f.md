@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/error.rs'] [Function: SecondaryDB::get_iter / ChainStore::get_iter] Can an attacker trigger a rocksdb::Error during SecondaryDB::iter() (store.rs:94-103) that is converted to Error::DB by the From impl, but then immediately re-panicked by ChainStore::get_iter() (store.rs:120-122) via `.expect(\
