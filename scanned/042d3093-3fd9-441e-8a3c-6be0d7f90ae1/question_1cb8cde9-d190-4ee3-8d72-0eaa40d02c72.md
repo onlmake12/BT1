@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/service.rs' -> indexer-sync/src/lib.rs:170] [Function: IndexerSyncService::try_loop_sync] Can a persistent DB error during rollback_block (e.g., SQLite disk full, PostgreSQL connection lost) cause the `.expect(\

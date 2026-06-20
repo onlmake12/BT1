@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/lib.rs'] [Function: SQLXPool::connect (store.rs:43-106)] Can an unprivileged operator-local user, under preconditions where the migrations directory contains a migration file with a SQL error or a version conflict, cause the `migrator.run(&pool).await?` call to return an error that propagates through `block_on(store.connect(...)).expect(\
