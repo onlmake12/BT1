@@ -1,1 +1,0 @@
-[File: 'chain/src/utils/mod.rs -> orphan_block_pool.rs + orphan_broker.rs'] [Function: OrphanBroker::clean_expired_orphans] Can an unprivileged block relayer under preconditions where the tip header is missing from the store (e.g., during node startup before genesis is written) cause clean_expired_orphans to call `.expect(\

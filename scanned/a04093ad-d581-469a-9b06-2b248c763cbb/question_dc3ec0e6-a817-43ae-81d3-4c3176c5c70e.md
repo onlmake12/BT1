@@ -1,1 +1,0 @@
-[File: 'chain/src/utils/mod.rs -> forkchanges.rs + verify.rs'] [Function: ConsumeUnverifiedBlockProcessor::reload_proposal_table] Can an unprivileged miner (with valid PoW on a private chain) under preconditions where a deep reorg is triggered and the proposal window spans blocks that were detached and not yet re-indexed cause reload_proposal_table to call `.expect(\

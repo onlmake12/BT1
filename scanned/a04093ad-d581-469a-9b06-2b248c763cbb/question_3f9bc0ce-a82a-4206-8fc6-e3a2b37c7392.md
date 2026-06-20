@@ -1,1 +1,0 @@
-[File: 'chain/src/utils/mod.rs -> forkchanges.rs + verify.rs'] [Function: ConsumeUnverifiedBlockProcessor::find_fork_until_latest_common] Can an unprivileged miner under preconditions where the store is missing a block ext for a block in the new tip's ancestor chain (e.g., due to a partial DB commit) cause find_fork_until_latest_common to call `.expect(\
