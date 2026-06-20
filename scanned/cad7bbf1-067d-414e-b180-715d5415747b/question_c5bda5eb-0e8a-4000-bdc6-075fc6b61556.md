@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/mod.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: init::init] Can an unprivileged local operator invoking `ckb init --chain dev --import-spec -` under the precondition that stdin supplies a valid TOML chain spec that passes ChainSpec::load_from but whose internal state causes build_consensus() to call .expect(\
