@@ -1,1 +1,0 @@
-[File: 'util/gen-types/src/conversion/primitive.rs'] [Function: 'impl<r> From<packed::BeUint32Reader<r>> for usize' at lines 267-272 and 'impl<r> Unpack<usize> for packed::BeUint32Reader<r>' at lines 274-280
