@@ -1,1 +1,0 @@
-[File: 'rpc/src/module/net.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: add_node / peer_id injection via format string] Can an unprivileged RPC caller pass a peer_id string containing '/' characters (e.g., 'fake/p2p/QmLegitPeerId') to add_node, causing the format!(\
