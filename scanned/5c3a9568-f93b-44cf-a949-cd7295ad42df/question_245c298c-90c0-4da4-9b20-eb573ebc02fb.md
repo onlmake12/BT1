@@ -1,1 +1,0 @@
-[File: 'db-migration/src/lib.rs'] [Function: Migrations::check / include_background=false path] Can an operator running `ckb migrate --check` under a Migrations registry where every registered migration has run_in_background()==true trigger the `migrations.next_back().unwrap_or_else(|| panic!(\
