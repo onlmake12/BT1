@@ -1,1 +1,0 @@
-[File: 'db/src/lib.rs' -> db/src/db.rs] [Function: RocksDB::open_with_check (prefix extractor hardcoding)] Can a database migration that changes the number of column families cause the hardcoded check 'if cf.name() == \
