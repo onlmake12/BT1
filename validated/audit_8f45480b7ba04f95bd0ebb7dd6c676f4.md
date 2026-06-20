@@ -1,0 +1,1 @@
+I found a very promising lead in `tx-pool/src/component/pool_map.rs` at the `track_entry_statics` function. Let me dig deeper into this and related code.
