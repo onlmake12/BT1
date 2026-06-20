@@ -1,1 +1,0 @@
-[File: 'notify/src/lib.rs'] [Function: handle_register_new_block / handle_watch_new_block (subscriber name collision)] Can an unprivileged attacker who causes `SubscriptionRpcImpl::new` to be called twice (e.g., via RPC server restart or re-initialization) trigger the subscriber name collision at lines 257/246 (both calls use the hardcoded name `\
