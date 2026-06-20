@@ -1,1 +1,0 @@
-[File: 'tx-pool/src/persisted.rs -> Scope: Note (0-500 points). Any local command line crash'] [Function: load_from_file / persisted_data_file.set_extension] Can an unprivileged local operator configure persisted_data to a PathBuf whose final component already contains a dot (e.g., 'tx.pool.data'), causing set_extension(format!(\
