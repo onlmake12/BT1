@@ -1,1 +1,0 @@
-[File: 'store/src/cache.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: ChainStore::get_block / store/src/store.rs] Can an unprivileged local RPC caller, by issuing get_block(block_hash) for a block whose HeaderView is in the StoreCache::headers cache but whose COLUMN_BLOCK_PROPOSAL_IDS entry is absent from the DB, trigger the .expect(\
