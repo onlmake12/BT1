@@ -1,1 +1,0 @@
-[File: 'util/onion/src/tor_controller.rs'] [Function: get_uptime] Can an operator-local attacker who controls the Tor controller cause `get_uptime` (tor_controller.rs line 65) to return a non-numeric string (e.g., an empty string, `\
