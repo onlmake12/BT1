@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/reset_data.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy'] [Function: reset_data / Setup::reset_data (setup.rs:418-424)] Can an operator-local user configure `[indexer_v2.rich_indexer] store = \
