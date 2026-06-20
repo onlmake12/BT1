@@ -1,1 +1,0 @@
-[File: 'resource/src/lib.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'] [Function: Template::render_to writeln / resource/src/template.rs] Can an unprivileged operator-local user, by supplying a template variable value containing '\\n' escape sequences (e.g., rpc_port = '8114\\nspec = { bundled = \
