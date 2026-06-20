@@ -1,1 +1,0 @@
-[File: 'network/src/protocols/ping.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: PingHandler::notify] Can an unprivileged operator or p2p framework extension cause the `notify` dispatch arm `_ => panic!(\
