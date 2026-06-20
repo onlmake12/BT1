@@ -1,1 +1,0 @@
-[File: 'util/types/src/utilities/block_filter.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: build_filter_data_for_block (in block-filter/src/filter.rs) / .expect(\
