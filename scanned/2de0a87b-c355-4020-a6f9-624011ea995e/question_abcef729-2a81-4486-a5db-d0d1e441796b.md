@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/indexer_handle/async_indexer_handle/get_cells.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: build_cell_filter / convert_max_values_in_search_filter (mod.rs lines 301-331)] Can an unprivileged RPC caller who passes an output_capacity_range or block_range filter where start > end (e.g., [\
