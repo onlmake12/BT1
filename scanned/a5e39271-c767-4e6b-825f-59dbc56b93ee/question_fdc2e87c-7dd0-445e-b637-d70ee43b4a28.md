@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/stats.rs'] [Function: print_miner_statics] Can an operator run `ckb stats` on a chain that contains a stored block whose cellbase lock script has a `hash_type` byte value that is not a valid `ScriptHashType` discriminant (e.g., 0x03, 0x05, or any odd value != 1), causing `ScriptHashType::try_from(script.hash_type()).expect(\

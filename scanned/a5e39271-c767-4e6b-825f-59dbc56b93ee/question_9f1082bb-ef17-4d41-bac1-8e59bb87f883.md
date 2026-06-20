@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/stats.rs'] [Function: print_miner_statics] Can an operator running `ckb stats --from 0 --to N` (N >= 1) on a chain whose genesis cellbase witness is stored as raw bytes that do NOT parse as a valid molecule `CellbaseWitness` table trigger the unconditional `.expect(\
