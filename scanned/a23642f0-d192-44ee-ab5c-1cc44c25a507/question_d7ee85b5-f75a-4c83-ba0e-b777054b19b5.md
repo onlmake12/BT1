@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/uints.rs'] [Function: impl_from_and_into macro, From<packed::Uint32> for JsonUint<u32> at line 158-163] Can an unprivileged attacker trigger a round-trip inconsistency where a packed Uint32/Uint64/Uint128 value is unpacked to a JsonUint, serialized to JSON as `\
