@@ -1,1 +1,0 @@
-[File: 'error/src/convert.rs'] [Function: InternalErrorKind::CapacityOverflow Display via derive_more::Display] Can an unprivileged CLI operator cause a local command line crash by triggering a ckb_occupied_capacity::Error that is converted to InternalError and then formatted via the alternate Display path (write!(f, \
