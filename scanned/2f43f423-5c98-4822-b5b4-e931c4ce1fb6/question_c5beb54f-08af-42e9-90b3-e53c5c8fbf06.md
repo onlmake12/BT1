@@ -1,1 +1,0 @@
-[File: 'script/src/syscalls/debugger.rs'] [Function: Debugger::ecall] Can an unprivileged script author craft a script that outputs a byte sequence that is valid VM memory but invalid UTF-8 via DEBUG_PRINT_SYSCALL_NUMBER, causing String::from_utf8 to return Err and the syscall to propagate VMError::External(format!(\
