@@ -1,1 +1,0 @@
-[File: 'script/src/types.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: SgData::new / dep_index u32 overflow] Can an unprivileged RPC caller submitting a transaction via estimate_cycles with more than u32::MAX cell deps (or a dep_index value that exceeds u32::MAX after resolution), trigger the .map_err(|_| ScriptError::Other(\
