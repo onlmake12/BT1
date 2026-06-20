@@ -1,1 +1,0 @@
-Let me look at the `MaturityVerifier` and the `SinceVerifier.verify()` method to understand the full picture.

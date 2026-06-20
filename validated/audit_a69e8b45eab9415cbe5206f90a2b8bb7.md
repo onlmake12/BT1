@@ -1,1 +1,0 @@
-I need to trace the exact call sequence and verify whether the double-write invariant can actually break.

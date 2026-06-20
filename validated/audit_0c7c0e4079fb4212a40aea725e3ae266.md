@@ -1,1 +1,0 @@
-Let me look at the contextual block verifier and the cellbase reward verification more carefully.

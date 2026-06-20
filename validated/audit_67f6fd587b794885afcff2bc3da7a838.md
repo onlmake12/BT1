@@ -1,1 +1,0 @@
-Let me look at the critical `check_and_record_ancestors` function to understand the eviction flow in `add_entry`.
