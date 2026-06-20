@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/error.rs'] [Function: CustomFilters::is_block_filter_match / eval_ast_with_scope] Can a block containing data that causes the Rhai block_filter script to return a non-bool value or throw a runtime exception trigger a panic in the indexer append path, because is_block_filter_match calls .expect(\

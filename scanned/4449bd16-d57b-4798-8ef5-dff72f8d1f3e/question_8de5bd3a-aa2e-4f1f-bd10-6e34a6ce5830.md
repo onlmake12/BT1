@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: CustomFilters::new (compile path)] Can an operator-local user supply a `block_filter_str` or `cell_filter_str` that is syntactically invalid Rhai, causing `engine.compile(filter).expect(\
