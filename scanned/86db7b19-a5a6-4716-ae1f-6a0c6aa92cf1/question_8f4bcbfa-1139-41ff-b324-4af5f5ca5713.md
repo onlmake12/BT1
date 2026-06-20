@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: CustomFilters::new] Can an unprivileged operator supply a syntactically invalid block_filter or cell_filter string that passes initial config parsing but fails Rhai compilation, causing `.expect(\
