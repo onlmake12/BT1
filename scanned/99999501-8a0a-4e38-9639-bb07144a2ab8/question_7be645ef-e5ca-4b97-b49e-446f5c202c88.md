@@ -1,1 +1,0 @@
-[File: 'shared/src/lib.rs -> shared/src/shared.rs'] [Function: freeze (epoch boundary calculation)] Can a node with current_epoch == THRESHOLD_EPOCH + 1 (epoch 3) trigger a panic in freeze() via the .expect(\
