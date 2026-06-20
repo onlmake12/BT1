@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/service.rs'] [Function: RichIndexerService::new / CustomFilters::new] Can an operator-local user who sets a syntactically invalid Rhai expression in `[indexer_v2] block_filter` (e.g., `block.header.number >>>`) trigger `engine.compile(block_filter).expect(\

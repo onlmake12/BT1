@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/service.rs'] [Function: AsyncRichIndexer::set_init_tip] Can an operator-local user who sets `init_tip_hash` to a valid H256 value trigger `set_init_tip` → `self.store.transaction().await.expect(\
