@@ -1,0 +1,1 @@
+Looking at the vulnerability class — **missing access control on a state-modifying function that can be called by anyone** — I need to find a CKB analog where an unprivileged caller can modify state belonging to another user's pending operation.
