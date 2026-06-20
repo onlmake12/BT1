@@ -1,1 +1,0 @@
-[File: 'util/light-client-protocol-server/src/lib.rs -> Scope: Note (0-500 points). Any local RPC API crash'] [Function: GetBlocksProofProcess::execute (get_blocks_proof.rs lines 83-94)] Can an unprivileged remote peer trigger a panic via `snapshot.get_block_header(&block_hash).expect(\
