@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/setup.rs -> Scope: Critical (15001 - 25000 points)'] [Function: Setup::run / min_chain_work set to 0 for non-mainnet (line 73) + sync/src/synchronizer/mod.rs MinWorkNotReach] Can a remote sync peer under the precondition that the node is running on testnet (where `min_chain_work` is set to `u256!(\
