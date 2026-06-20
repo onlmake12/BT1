@@ -1,1 +1,0 @@
-[File: 'spec/src/error.rs'] [Function: SpecError::FileNotFound / RPCError::from_ckb_error] Can an unprivileged RPC caller, by triggering any code path that raises SpecError::FileNotFound(path_string) and routes it through RPCError::from_ckb_error, observe that the inner String payload is silently dropped by the #[error(\

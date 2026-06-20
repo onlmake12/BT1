@@ -1,1 +1,0 @@
-[File: 'spec/src/error.rs'] [Function: remove_backtrace / byte-index slicing on non-ASCII error strings] Can an unprivileged attacker, by inducing an error whose Debug string contains a multi-byte UTF-8 sequence immediately before the substring \

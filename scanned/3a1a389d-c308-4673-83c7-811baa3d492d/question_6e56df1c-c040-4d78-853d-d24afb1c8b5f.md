@@ -1,1 +1,0 @@
-[File: 'spec/src/error.rs'] [Function: SpecError::GenesisMismatch Display / RPCError::custom_with_error] Can an unprivileged RPC caller, under conditions where a SpecError::GenesisMismatch is surfaced through RPCError::from_ckb_error, observe that the RPC error message contains the verbose Byte32 Display format \

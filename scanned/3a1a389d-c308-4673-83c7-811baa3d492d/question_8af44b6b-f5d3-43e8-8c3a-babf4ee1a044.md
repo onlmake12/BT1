@@ -1,1 +1,0 @@
-[File: 'spec/src/error.rs'] [Function: is_internal_db_error / RPC handler call chain] Can an unprivileged RPC caller, by submitting a request that triggers a code path calling is_internal_db_error on a CKBError whose kind is ErrorKind::Internal and whose downcast_ref::<InternalError>().kind() == InternalErrorKind::DataCorrupted, cause the explicit panic!(\
