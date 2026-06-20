@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: register_ops macro / to_uint] Can an unprivileged operator-local user configure a filter script that performs U256 subtraction underflow (e.g., 'to_uint(\

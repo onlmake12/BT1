@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_cell_filter_match] Can an unprivileged operator-local user configure a cell_filter Rhai script that returns a non-bool value (e.g., 'output.capacity') cause the .expect(\

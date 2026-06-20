@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: to_uint] Can an unprivileged operator-local user who sets block_filter or cell_filter to a Rhai script that calls to_uint() with a string shorter than 2 bytes (e.g., to_uint(\
