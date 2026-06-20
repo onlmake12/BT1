@@ -1,1 +1,0 @@
-[File: 'util/chain-iter/src/lib.rs -> Scope: Note (0-500 points). Any local RPC API crash'] [Function: ChainIterator::new] Can an unprivileged local CLI operator run `ckb replay --sanity-check` against a database where `get_tip_header()` returns `None` (e.g., empty or corrupted DB), causing the `expect(\
