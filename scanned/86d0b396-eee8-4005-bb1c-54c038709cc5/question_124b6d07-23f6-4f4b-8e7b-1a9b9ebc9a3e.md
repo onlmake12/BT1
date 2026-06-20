@@ -1,1 +1,0 @@
-[File: 'network/src/protocols/support_protocols.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: SupportProtocols::support_versions / LASTEST_VERSION] Can an unprivileged operator or test harness that adds a second version entry to any `support_versions()` arm in an unsorted order (e.g., vec![\
