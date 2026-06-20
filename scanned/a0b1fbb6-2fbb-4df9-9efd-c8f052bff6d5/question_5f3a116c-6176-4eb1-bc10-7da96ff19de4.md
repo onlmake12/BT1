@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/pool.rs'] [Function: Pool (no size limit) + get_cells SQL NOT IN generation in get_cells.rs lines 124-134 — output_index inline vs bound parameter asymmetry] Can an unprivileged attacker exploit the SQL generation bug in AsyncRichIndexerHandle::get_cells where output_index is inlined directly into the SQL string as a literal integer (format!(\
