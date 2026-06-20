@@ -1,1 +1,0 @@
-[File: 'network/src/protocols/mod.rs'] [Function: CKBProtocol::new / supported_versions sort and dedup] Can an unprivileged operator-local user who constructs a CKBProtocol with a versions slice containing duplicate entries, under preconditions where match_version is called, trigger the call sequence new(versions=[\
