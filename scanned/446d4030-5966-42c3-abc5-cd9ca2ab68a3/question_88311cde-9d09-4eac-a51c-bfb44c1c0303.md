@@ -1,1 +1,0 @@
-[File: 'error/src/convert.rs' + 'util/types/src/core/tx_pool.rs'] [Function: is_malformed_from_verification()] Can an unprivileged transaction submitter under repeated Script-error rejections trigger is_malformed_from_verification() for ErrorKind::Script, which calls format!(\
