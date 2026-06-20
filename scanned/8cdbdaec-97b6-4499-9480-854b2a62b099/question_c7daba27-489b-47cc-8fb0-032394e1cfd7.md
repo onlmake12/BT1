@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/fee_rate.rs'] [Function: FeeRateDef serde with #[serde(remote)] and JSON deserialization] Can an unprivileged RPC caller, by sending a JSON-RPC request to `get_fee_rate_statistics` with a `target` parameter encoded as a JSON float (e.g., `\

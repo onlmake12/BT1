@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/fee_rate.rs'] [Function: FeeRateCollector::statistics / txs_sizes.expect()] Can an unprivileged RPC caller, by calling `get_fee_rate_statistics` on a node whose database contains a `BlockExt` with `txs_sizes = None` (e.g., from a pre-migration snapshot or a block stored before the `txs_sizes` field was added), trigger the `.expect(\
