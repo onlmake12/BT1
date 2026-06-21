@@ -1,1 +1,0 @@
-[File: 'util/app-config/src/configs/db.rs'] [Function: RocksDB::open_with_check / options_file with extra unknown CFOptions] Can an operator-local user supply an options_file that declares a CFOptions section for a column family name not in the expected set (e.g., 'CFOptions \
