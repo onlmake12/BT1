@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/stats.rs -> Scope: Critical (15001 - 25000 points)'] [Function: print_miner_statics] Can an operator running `ckb stats` on a database that contains a block imported via `ckb import --skip-all-verify` whose cellbase lock script has an odd `hash_type` byte (e.g., 3, 5, 7) trigger the `.expect(\
