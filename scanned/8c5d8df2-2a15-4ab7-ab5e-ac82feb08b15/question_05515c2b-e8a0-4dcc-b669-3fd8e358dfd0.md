@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/indexer/mod.rs'] [Function: build_indexer_cell in get_cells.rs] Can an unprivileged RPC caller under preconditions where a cell output row has a non-NULL type_code_hash but a NULL type_hash_type or type_args column (schema inconsistency or partial insert) trigger get_cells -> build_indexer_cell -> row.get::<Option<i16>, _>(\
