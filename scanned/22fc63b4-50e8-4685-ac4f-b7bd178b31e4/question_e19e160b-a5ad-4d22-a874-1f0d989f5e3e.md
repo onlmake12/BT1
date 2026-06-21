@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/store.rs'] [Function: SecondaryDB::get_pinned (line 71-77) + ChainStore::get (line 115-118)] Can an operator-local user, by opening the secondary DB against a primary DB that was created with a different column family set (e.g., a pre-migration DB missing COLUMN_BLOCK_EXTENSION = \

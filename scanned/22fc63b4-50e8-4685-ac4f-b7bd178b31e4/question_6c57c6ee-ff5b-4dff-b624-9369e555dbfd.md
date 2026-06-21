@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match (line 91-92)] Can an operator-local user, by supplying a Rhai block_filter script that returns a non-boolean value or throws a runtime error (e.g., block_filter = \

@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/store.rs' + 'util/indexer-sync/src/lib.rs'] [Function: new_secondary_db / indexer_secondary_options] Can an operator-local user, by leaving indexer.secondary_path unset (defaulting to PathBuf::new() which serializes to an empty string via to_string_lossy), cause SecondaryOpenDescriptor::new(\
