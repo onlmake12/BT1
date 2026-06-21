@@ -1,1 +1,0 @@
-[File: 'error/src/convert.rs' + 'error/src/lib.rs'] [Function: AnyError::fmt (Debug)] Can an unprivileged RPC caller trigger AnyError's Debug impl which delegates to Display (derive_more::Display::fmt), causing format!(\

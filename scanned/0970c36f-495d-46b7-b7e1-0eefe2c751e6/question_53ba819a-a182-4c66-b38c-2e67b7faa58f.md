@@ -1,1 +1,0 @@
-[File: 'error/src/convert.rs' + 'rpc/src/error.rs'] [Function: RPCError::custom_with_error()] Can an unprivileged RPC caller under repeated send_transaction calls that fail with CapacityOverflow trigger custom_with_error(), which formats the error twice (format!(\
