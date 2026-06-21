@@ -1,1 +1,0 @@
-[File: 'error/src/prelude.rs -> Scope: Note (0-500 points). Any local RPC API crash'] [Function: RPCError::custom_with_error (rpc/src/error.rs:168)] Can an unprivileged RPC caller craft a transaction or block submission that produces an error whose Debug impl (via AnyError::fmt calling derive_more::Display::fmt) panics or stack-overflows, causing custom_with_error's format!(\
