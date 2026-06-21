@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/migrate.rs'] [Function: migrate / patch_220464f] Can an unprivileged local operator, by running `ckb migrate` against a very old CKB database (pre-v0.35.0) that has no `MIGRATION_VERSION_KEY` but has a non-empty meta column, trigger `patch_220464f` which starts migration from hardcoded version `\

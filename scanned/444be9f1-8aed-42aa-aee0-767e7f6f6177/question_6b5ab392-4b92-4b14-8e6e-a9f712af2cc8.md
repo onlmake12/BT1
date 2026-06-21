@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/migrate.rs'] [Function: migrate / prompt] Can an unprivileged local operator, by running `ckb migrate` (without `--force`) in a terminal context where stdin is at EOF (e.g., `ckb migrate < /dev/null`), observe that `prompt()` calls `stdin.read_line(&mut input)` which returns `Ok(0)` (EOF), `input` remains empty, `input.trim().to_lowercase() != \

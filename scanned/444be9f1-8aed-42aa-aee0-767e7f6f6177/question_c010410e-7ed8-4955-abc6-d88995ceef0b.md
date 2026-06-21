@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/migrate.rs'] [Function: migrate / Migrations::check] Can an unprivileged local operator, by writing a version string to `MIGRATION_VERSION_KEY` that is lexicographically greater than the latest registered migration version string but semantically represents an older schema (e.g., a non-timestamp string like `\

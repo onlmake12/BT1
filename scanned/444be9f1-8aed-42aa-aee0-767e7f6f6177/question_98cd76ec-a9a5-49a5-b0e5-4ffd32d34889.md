@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/migrate.rs'] [Function: migrate / Migrations::check] Can an unprivileged local operator, by running `ckb migrate` against a database where `MIGRATION_VERSION_KEY` contains a valid UTF-8 string that is NOT in the expected `YYYYMMDDHHMMSS` timestamp format (e.g., `\
