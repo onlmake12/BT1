@@ -1,1 +1,0 @@
-[File: 'resource/specs/testnet.toml -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: build_genesis / build_genesis_dao_data (expect)] Can an unprivileged local operator craft a spec where all `issued_cells` have `capacity = 0` and all system cells have `capacity = 0`, causing `build_genesis_dao_data` in `spec/src/consensus.rs:258` to call `.expect(\
