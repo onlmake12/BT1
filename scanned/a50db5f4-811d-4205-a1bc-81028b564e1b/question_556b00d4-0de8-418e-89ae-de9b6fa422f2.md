@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs'] [Function: SQLXPool::fetch_count (line 113)] Can an unprivileged attacker who corrupts or replaces the SQLite DB file on disk (e.g., via a symlink race during node startup) under preconditions where the node runs with the `--rich-indexer` flag trigger `fetch_count` to return a negative `i64` value from the DB, causing the `.expect(\

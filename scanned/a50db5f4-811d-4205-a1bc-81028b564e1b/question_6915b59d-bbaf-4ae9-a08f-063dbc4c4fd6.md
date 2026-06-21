@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/service.rs' -> indexer/mod.rs:173] [Function: AsyncRichIndexer::append] Can a panic in any async task holding the Pool RwLock write guard (e.g., in PoolService::index_tx_pool at pool.write().expect) poison the RwLock, causing subsequent calls to pool.write().expect(\
