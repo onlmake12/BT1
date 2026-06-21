@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/lib.rs'] [Function: get_tx_with_cells (io_pairs parsing)] Can an unprivileged attacker craft a transaction whose tx_hash or io_index values, when serialized by GROUP_CONCAT/ARRAY_AGG into the io_pairs string and then split on '\
