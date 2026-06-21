@@ -1,1 +1,0 @@
-[File: 'freezer/src/lib.rs -> store/src/store.rs::ChainStore::get_block'] [Function: ChainStore::get_block line 50] Can a local operator corrupt a frozen block's flat-file bytes so that `packed::BlockReader::from_compatible_slice(&raw_block).expect(\
