@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match / is_cell_filter_match] Can an operator-local user configure a `cell_filter` that accesses a field on a null `output.type` script without using the Rhai null-safe operator (e.g., `output.type.code_hash == \

@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match / is_cell_filter_match] Can an operator-local user configure a filter script that uses Rhai string operations to construct and compare strings of unbounded length (e.g., `let s = \
