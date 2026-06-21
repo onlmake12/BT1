@@ -1,1 +1,0 @@
-[File: 'src/main.rs -> ckb-bin/src/setup.rs'] [Function: Setup::peer_id / Setup::generate] Can a local operator invoking `ckb peer-id from-secret --secret-path <path>` with a path argument that clap marks as required but that is somehow absent from ArgMatches (e.g., due to a clap API misuse or future refactor) trigger the `.expect(\
