@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match / is_cell_filter_match, Engine (no string/array size limits)] Can an unprivileged operator-local user configure a block_filter or cell_filter Rhai script that allocates unbounded memory (e.g., 'let s = \

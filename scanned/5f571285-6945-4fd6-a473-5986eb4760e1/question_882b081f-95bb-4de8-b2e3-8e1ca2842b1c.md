@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: to_uint, cross-module: is_block_filter_match / is_cell_filter_match] Can an unprivileged operator-local user configure a block_filter or cell_filter Rhai script that calls to_uint() with a string of exactly 1 byte (e.g., to_uint(\

@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: to_uint, register_ops! (/ and %)] Can an unprivileged operator-local user configure a block_filter or cell_filter Rhai script that performs U256 division or modulo by zero (e.g., 'to_uint(\

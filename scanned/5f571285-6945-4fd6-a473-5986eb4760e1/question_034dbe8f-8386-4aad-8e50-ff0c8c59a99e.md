@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_cell_filter_match] Can an unprivileged operator-local user configure a cell_filter Rhai script that references an undefined variable (e.g., 'undefined_var == true') causing eval_ast_with_scope to return Err(EvalAltResult::ErrorVariableNotFound), which is then .expect(\

@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match] Can an unprivileged operator-local user configure a block_filter Rhai script that evaluates to a non-boolean value (e.g., '42' or '\
