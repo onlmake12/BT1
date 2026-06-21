@@ -1,1 +1,0 @@
-[File: 'store/src/store.rs -> Scope: Critical (15001 - 25000 points)'] [Function: get_block / get_unfrozen_block] Can an unprivileged attacker who causes partial DB corruption or a race during block insertion trigger get_block() or get_unfrozen_block() to hit the `.expect(\
