@@ -1,1 +1,0 @@
-[File: 'util/instrument/src/import.rs -> Scope: High (10001 - 15000 points)'] [Function: read_from_json / rayon par_iter closure] Can an operator-local user running `ckb import` with a crafted JSONL file containing a syntactically invalid JSON line (e.g., truncated UTF-8, mismatched braces, or a non-object value) trigger the `.expect(\
