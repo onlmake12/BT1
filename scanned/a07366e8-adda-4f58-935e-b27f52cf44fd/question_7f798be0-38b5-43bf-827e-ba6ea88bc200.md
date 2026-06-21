@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/lib.rs -> Scope: High (10001 - 15000 points)'] [Function: subcommand::run -> ctrlc::set_handler / signal handler panic] Can an operator-local user run `ckb run` in an environment where SIGINT is already handled (e.g., inside a process supervisor, a test harness, or a shell that has set `SIG_IGN` on SIGINT) cause `ctrlc::set_handler(...).expect(\
