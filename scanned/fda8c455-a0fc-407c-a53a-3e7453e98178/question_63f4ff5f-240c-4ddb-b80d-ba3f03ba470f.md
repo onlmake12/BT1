@@ -1,1 +1,0 @@
-[File: 'resource/src/template.rs'] [Function: render_to + Resource::export + ChainSpec::build_consensus] Can an unprivileged operator-local user running `ckb init --chain mainnet --import-spec -` (stdin import path) supply a base64-encoded spec whose `name` field is `\
