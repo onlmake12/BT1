@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/lib.rs'] [Function: SQLXPool::fetch_count (store.rs:108-113)] Can an unprivileged operator-local user or internal caller, under the precondition that `table_name` is derived from any user-influenced or externally-sourced string (e.g., a config value or future API extension), trigger SQL injection via the unparameterized `format!(\
