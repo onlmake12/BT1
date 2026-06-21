@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: 'init' -> closure inside 'default_code_hash_option' map at line 89-90] Can an unprivileged local operator running 'ckb init --chain <valid_chain>' trigger a hard panic via the bare '.expect(\
