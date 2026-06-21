@@ -1,1 +1,0 @@
-[File: tx-pool/src/block_assembler/candidate_uncles.rs -> Scope: Medium (2001-10000)] [Function: CandidateUncles::insert (count invariant)] Can a sequence of insert() and remove_by_number() calls cause the count field to diverge from the actual sum of set lengths across all BTreeMap entries, leading to a panic at the expect(\
