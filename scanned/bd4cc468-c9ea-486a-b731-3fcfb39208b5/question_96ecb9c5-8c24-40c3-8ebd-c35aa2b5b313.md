@@ -1,1 +1,0 @@
-[File: 'util/memory-tracker/src/lib.rs -> rocksdb.rs::gather_int_values'] [Function: TrackRocksDBMemory::gather_int_values (rocksdb.rs:57-72)] Can a custom `TrackRocksDBMemory` implementation (or a future caller) pass an attacker-controlled `key` string containing label-injection characters (e.g., `}`, `{`, newlines) into `format!(\
