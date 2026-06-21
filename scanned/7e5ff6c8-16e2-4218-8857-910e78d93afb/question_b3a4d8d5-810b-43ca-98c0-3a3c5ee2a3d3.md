@@ -1,1 +1,0 @@
-[File: 'util/build-info/src/lib.rs'] [Function: Version::short / get_bin_name_and_matches] Can an unprivileged local operator, by building CKB with `CARGO_PKG_VERSION_PRE` set to a string containing a newline character or ANSI escape sequence, under the precondition that `dash_pre` is constructed as `\

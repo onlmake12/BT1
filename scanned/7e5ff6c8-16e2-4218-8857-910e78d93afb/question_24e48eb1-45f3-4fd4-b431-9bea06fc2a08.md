@@ -1,1 +1,0 @@
-[File: 'util/build-info/src/lib.rs'] [Function: get_commit_date] Can an unprivileged local operator, by running `cargo build` in a git repository where the system-level `TZ` environment variable is set to a locale that causes `git log --date=iso` to output a date string in a non-ISO format shorter than 10 bytes, under the precondition that `get_commit_date()` sets `.env(\

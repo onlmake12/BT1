@@ -1,1 +1,0 @@
-[File: 'util/app-config/src/sentry_config.rs'] [Function: before_send (thread name insertion)] Can a thread with an extremely long name (e.g., set via `std::thread::Builder::name()` with a multi-megabyte string) cause `event.extra.insert(\

@@ -1,1 +1,0 @@
-[File: 'util/app-config/src/sentry_config.rs'] [Function: before_send (Unicode/non-UTF8 exception value)] Can a panic message containing non-ASCII Unicode characters whose UTF-8 byte sequences happen to contain the ASCII bytes of a suppression pattern (e.g., a multi-byte sequence whose bytes spell out `kind: AddrInUse` at a non-character boundary) cause `ex.contains(\
