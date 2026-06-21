@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init / --genesis-message TOML injection into dev spec] Can an unprivileged local operator running `ckb init --chain dev --genesis-message` supply a string containing a double-quote or TOML special characters (e.g. `foo\
