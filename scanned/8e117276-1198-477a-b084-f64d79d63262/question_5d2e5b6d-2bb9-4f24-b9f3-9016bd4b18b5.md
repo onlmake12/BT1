@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs' + 'util/rich-indexer/src/indexer/mod.rs' (line 173)] [Function: AsyncRichIndexer::append] Can an unprivileged block relayer who causes a panic in any thread holding the `RwLock<Pool>` write lock under preconditions where `index_tx_pool` is enabled trigger `p.write().expect(\

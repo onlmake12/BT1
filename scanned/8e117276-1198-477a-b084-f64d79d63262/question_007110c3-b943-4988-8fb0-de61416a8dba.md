@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs'] [Function: build_url_for_sqlite (line 235)] Can an unprivileged operator-local user who configures a `store` path containing non-UTF-8 bytes in `ckb.toml` under preconditions where `DBDriver::Sqlite` is selected trigger `db_config.store.to_str().expect(\
