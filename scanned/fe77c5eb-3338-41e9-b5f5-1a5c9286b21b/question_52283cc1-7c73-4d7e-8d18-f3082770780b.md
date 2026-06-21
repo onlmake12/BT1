@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match] Can an operator-local user configure a Rhai block_filter script that returns a non-boolean value (e.g., an integer, string, or map), causing `eval_ast_with_scope::<bool>` to return a type-cast error (`EvalAltResult::ErrorMismatchOutputType`), which then hits `.expect(\

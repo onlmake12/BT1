@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs'] [Function: is_block_filter_match / is_cell_filter_match] Can an operator-local user configure a Rhai filter script that accesses a missing or optional field without the null-safe `?.` operator (e.g., `output.type.args` when `type` is `None`), causing `eval_ast_with_scope` to return `Err(EvalAltResult)`, which then hits `.expect(\
