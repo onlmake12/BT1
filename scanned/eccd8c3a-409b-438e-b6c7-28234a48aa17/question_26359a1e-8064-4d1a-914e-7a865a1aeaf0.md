@@ -1,1 +1,0 @@
-[File: 'network/src/services/outbound_peer.rs'] [Function: OutboundPeerService::try_dial_whitelist] Can an operator-local user who places a malformed `Multiaddr` (e.g., missing the `/p2p/<peer_id>` component) in the `whitelist_peers` config cause `dial_identify` -> `dial_inner` -> `can_dial` -> `extract_peer_id` to return `None`, triggering the `error!(\
