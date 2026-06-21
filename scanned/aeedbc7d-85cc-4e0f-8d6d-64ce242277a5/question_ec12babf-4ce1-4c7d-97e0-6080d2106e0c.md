@@ -1,1 +1,0 @@
-[File: 'verification/src/block_verifier.rs'] [Function: CellbaseVerifier::verify (line 146-149)] Can an unprivileged block submitter craft a non-genesis block whose first transaction satisfies is_cellbase() (null outpoint, exactly 1 input, exactly 1 witness) yet whose inputs() vector is somehow empty at the point of the .expect(\
