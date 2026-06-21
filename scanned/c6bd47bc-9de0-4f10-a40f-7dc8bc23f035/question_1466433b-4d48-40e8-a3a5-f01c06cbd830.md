@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs'] [Function: impl_std_fmt! LowerHex for H256] Can an unprivileged peer or transaction sender exploit the fact that LowerHex and Display for H256/H160 are byte-for-byte identical (both emit lowercase hex without 0x by default, both emit 0x-prefixed hex with alternate flag), causing callers that use format!(\

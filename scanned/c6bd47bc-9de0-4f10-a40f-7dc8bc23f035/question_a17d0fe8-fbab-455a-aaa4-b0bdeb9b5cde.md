@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs'] [Function: impl_std_fmt! Debug - proc-macro TokenStream injection via crafted H256 value] Can an unprivileged script author or build-system attacker trigger incorrect CKB-VM behavior by crafting an H256 value whose Debug representation, when formatted as format!(\

@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs'] [Function: impl_std_fmt! Debug for H256] Can an unprivileged script author, by observing that the h256!/h160! proc-macro in util/fixed-hash/macros/src/lib.rs calls format!(\
