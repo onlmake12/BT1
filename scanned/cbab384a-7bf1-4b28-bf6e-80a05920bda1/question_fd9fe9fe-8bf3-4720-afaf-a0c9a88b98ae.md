@@ -1,1 +1,0 @@
-[File: 'network/src/protocols/identify/mod.rs -> Scope: High (10001 - 15000 points)'] [Function: IdentifyProtocol::disconnected / IdentifyProtocol::received (None branch)] Can an unprivileged remote peer trigger a node panic via the expect(\
