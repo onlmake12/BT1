@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/list_hashes.rs'] [Function: list_hashes (lines 141-143)] Can an operator-local user observe that `config.chain.spec.absolutize(&root_dir)` only absolutizes `FileSystem` resources (resource/src/lib.rs lines 187-193) and has no effect on `Bundled` or `Raw` resources, so that a `ckb.toml` that specifies `chain.spec = { bundled = \
