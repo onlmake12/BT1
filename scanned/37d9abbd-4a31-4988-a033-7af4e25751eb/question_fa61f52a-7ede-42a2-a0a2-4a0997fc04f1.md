@@ -1,1 +1,0 @@
-[File: 'util/instrument/src/lib.rs -> import.rs'] [Function: Import::read_from_json (line 157-163)] Can a local operator pass `--num-threads usize::MAX` (or any value that causes `rayon::ThreadPoolBuilder::new().num_threads(usize::MAX).build()` to fail due to OS thread limit), triggering `.expect(\
