@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/error.rs'] [Function: from_slice / Unpack<H256> for packed::Byte32Reader (impls.rs, std_env.rs)] Can an unprivileged transaction relayer under preconditions where a malformed packed::Byte32 molecule structure is constructed with a slice length != 32 trigger the Unpack<H256> impl—which calls H256::from_slice(self.as_slice()).expect(\
