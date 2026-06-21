@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/terminal.rs -> rpc/src/module/terminal.rs'] [Function: get_overview / refresh parameter type confusion] Can an unprivileged local RPC caller send get_overview with refresh as a JSON string (e.g., '\
