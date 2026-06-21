@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/fixed_bytes.rs -> Scope: Note (0-500 points). Any local RPC API crash'] [Function: Byte32Visitor::visit_str / hex_decode buffer bounds] Can an unprivileged RPC caller submitting a `submit_block` request with a `dao` field of exactly 66 bytes where the last two bytes are a 2-byte UTF-8 sequence (e.g., `\

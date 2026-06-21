@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/indexer.rs'] [Function: IndexerRange / serde transparent fixed-array deserialization] Can an unprivileged RPC caller submit a JSON array with exactly one element (e.g. [\
