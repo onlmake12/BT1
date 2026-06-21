@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/bytes.rs'] [Function: BytesVisitor::visit_str] Can an unprivileged RPC caller submit a hex string where the '0x' prefix check passes (bytes[0..2] == b'0x') but the string contains embedded null bytes or control characters after the prefix, causing faster_hex::hex_decode to return an InvalidCharacter error that is then formatted via format_args!(\
