@@ -1,1 +1,0 @@
-[File: 'util/app-config/src/configs/fee_estimator.rs'] [Function: Algorithm (serde Deserialize) + Unicode/control-character algorithm value] Can a local operator who sets `algorithm` to a Unicode string containing control characters, null bytes, or right-to-left override characters (e.g., `algorithm = \
