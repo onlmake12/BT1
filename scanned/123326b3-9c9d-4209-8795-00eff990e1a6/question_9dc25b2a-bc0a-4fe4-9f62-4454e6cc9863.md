@@ -1,1 +1,0 @@
-[File: 'script/src/error.rs'] [Function: map_vm_internal_error (in verify.rs)] Can an unprivileged transaction submitter cause a script to return `VMInternalError::External(s)` where `s` is a large string (not \

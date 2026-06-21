@@ -1,1 +1,0 @@
-[File: 'script/src/error.rs'] [Function: ScriptError::ValidationFailure(String, i8)] Can an unprivileged transaction submitter cause a node to compare two `ScriptError::ValidationFailure` values for equality (e.g., in `assert_error_eq!` or tx-pool deduplication), triggering a full `String` comparison of the URL path (e.g., `\
