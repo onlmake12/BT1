@@ -1,1 +1,0 @@
-[File: 'tx-pool/src/component/mod.rs -> pool_map.rs'] [Function: get_by_id_checked] Can an unprivileged RPC caller, by submitting a transaction whose ancestor is present in TxLinksMap.inner but has been concurrently removed from MultiIndexPoolEntryMap (a TOCTOU window between get_tx_ancenstors and _record_ancestors), trigger the expect(\
