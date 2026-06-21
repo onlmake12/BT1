@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs -> Scope: Note (0-500 points). Any local command line crash'] [Function: init / TOML structure corruption via multi-value --ba-arg join] Can an unprivileged local operator, by passing multiple `--ba-arg` values whose hex content, when joined with `\

@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/setup.rs -> Scope: Note (0-500 points). Any local command line crash'] [Function: Setup::run / expect panics on bundled mainnet spec] Can an unprivileged local operator, by running `ckb run` against a CKB binary whose embedded `specs/mainnet.toml` resource is corrupted or whose `build_genesis()` fails due to a consensus construction bug, trigger the `expect(\
