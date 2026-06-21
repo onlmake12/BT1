@@ -1,1 +1,0 @@
-[File: 'store/src/db.rs -> Scope: Critical (15001 - 25000 points)'] [Function: ChainStore::get_block (store/src/store.rs:42-70) + Freezer::retrieve] Can an attacker who corrupts the freezer storage (e.g., by truncating the ancient block file) cause `freezer.retrieve(header.number()).expect(\

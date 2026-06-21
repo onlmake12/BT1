@@ -1,1 +1,0 @@
-[File: 'store/src/db.rs -> Scope: Critical (15001 - 25000 points)'] [Function: ChainStore::get_unfrozen_block (store/src/store.rs:109-147)] Can an attacker who causes a partial block write (e.g., insert_block writes COLUMN_BLOCK_HEADER but crashes before writing COLUMN_BLOCK_UNCLE) leave the DB in a state where get_unfrozen_block finds a header but panics at `.expect(\
