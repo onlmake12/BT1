@@ -1,1 +1,0 @@
-[File: 'util/migrate/src/migrations/set_2019_block_cycle_zero.rs'] [Function: BlockExt2019ToZero::migrate] Can a node crash when `get_block_ext` at line 88 reads a BlockExt with an unexpected molecule field count (not 0 or 2 extra fields) from COLUMN_BLOCK_EXT, triggering the explicit panic in `store/src/store.rs` line 256 (`panic!(\
