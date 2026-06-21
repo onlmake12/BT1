@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs' + 'indexer_handle/async_indexer_handle/get_cells.rs'] [Function: get_cells / dead_cells output_index direct interpolation] Can an unprivileged RPC caller under the precondition that the tx-pool contains pending transactions with output indices that, when interpolated as format!(\
