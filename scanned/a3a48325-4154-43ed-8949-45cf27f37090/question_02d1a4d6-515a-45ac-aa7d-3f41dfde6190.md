@@ -1,1 +1,0 @@
-[File: 'verification/contextual/src/contextual_block_verifier.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: RewardCalculator::block_reward_internal (util/reward-calculator/src/lib.rs line 100)] Can an unprivileged RPC caller trigger a panic via `CellbaseWitness::from_slice(...).expect(\
