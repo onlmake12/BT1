@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_convert.rs' + 'util/fixed-hash/core/src/serde.rs'] [Function: Deserialize visit_str — redundant UTF-8 prefix check before FromStr] Can an unprivileged RPC caller, under the precondition that the serde Deserialize impl for H256 checks b.len() <= 2 || &b[0..2] != b\
