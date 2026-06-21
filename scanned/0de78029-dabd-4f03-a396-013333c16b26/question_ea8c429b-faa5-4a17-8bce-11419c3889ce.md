@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/json_schema.rs' + 'util/jsonrpc-types/src/indexer.rs'] [Function: IndexerRange (#[serde(transparent)] over [Uint64; 2])] Can an unprivileged RPC caller under no special preconditions send a JSON array with a number of elements other than exactly 2 (e.g., [], [\

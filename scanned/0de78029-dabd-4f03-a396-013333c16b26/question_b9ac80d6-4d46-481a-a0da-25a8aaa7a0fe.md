@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/json_schema.rs' + 'util/jsonrpc-types/src/blockchain.rs'] [Function: TransactionView (#[serde(flatten)] + Transaction #[serde(deny_unknown_fields)])] Can an unprivileged RPC caller under no special preconditions send a TransactionView JSON object containing extra unknown fields (e.g., \
