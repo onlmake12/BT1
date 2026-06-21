@@ -1,1 +1,0 @@
-[File: 'util/spawn/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: new_runtime / Builder::build (util/runtime/src/native.rs)] Can an unprivileged local operator exhaust OS thread resources (e.g., via `ulimit -u` or cgroup `pids.max`) before invoking `ckb run`, causing `Builder::new_multi_thread().build()` to fail and the `.expect(\

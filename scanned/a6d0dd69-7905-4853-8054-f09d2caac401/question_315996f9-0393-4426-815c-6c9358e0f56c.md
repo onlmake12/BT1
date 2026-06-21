@@ -1,1 +1,0 @@
-[File: 'util/spawn/src/lib.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: setup_system_cell_cache / rayon::build_global (ckb-bin/src/subcommand/run.rs)] Can an operator invoking `ckb run` twice in the same process (e.g., via a test harness or a future `reload` feature) trigger a panic in `setup_system_cell_cache(...).expect(\
