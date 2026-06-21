@@ -1,1 +1,0 @@
-[File: 'util/logger/src/lib.rs + util/logger-service/src/lib.rs'] [Function: Logger::log (Log impl), format! calls at lines 444-451 and 460] Can an unprivileged operator configure the node with log_to_file=true and color=true, causing Logger::log to call format!(\

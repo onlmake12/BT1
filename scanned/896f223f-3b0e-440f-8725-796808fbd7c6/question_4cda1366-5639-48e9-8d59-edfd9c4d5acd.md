@@ -1,1 +1,0 @@
-[File: 'util/logger/src/lib.rs + util/logger-service/src/lib.rs'] [Function: Logger::flush, Mutex<Option<JoinHandle>> take().expect()] Can an unprivileged operator or test harness trigger Logger::flush() more than once (e.g., via two concurrent LoggerInitGuard drops, or a manual flush() call followed by guard drop), causing the Mutex::lock().take().expect(\
