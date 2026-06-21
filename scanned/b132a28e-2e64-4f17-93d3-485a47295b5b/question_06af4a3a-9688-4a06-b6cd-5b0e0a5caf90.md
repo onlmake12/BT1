@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/cli.rs -> Scope: Critical (15001 - 25000 points)'] [Function: init() / ARG_IMPORT_SPEC stdin base64 encode bug] Can an operator-local user under the precondition of following the documented workflow 'pipe a base64-encoded chain spec to ckb init --import-spec -' trigger the call sequence ckb init --import-spec - -> subcommand::init -> spec_file==\
