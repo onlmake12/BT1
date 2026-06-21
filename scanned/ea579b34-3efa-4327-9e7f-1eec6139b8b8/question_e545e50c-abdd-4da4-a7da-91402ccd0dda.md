@@ -1,1 +1,0 @@
-[File: 'util/app-config/src/args.rs -> Scope: Note (0-500). Any local RPC API crash'] [Function: InitArgs / block_assembler_args TOML injection via ckb-bin/src/subcommand/init.rs:135] Can an operator pass `--ba-arg '0x00\
