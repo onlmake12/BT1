@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/replay.rs'] [Function: process_range_block] Can an operator trigger a panic in `process_range_block` when `snapshot.get_block(&hash)` returns `None` for a hash that exists in COLUMN_INDEX but whose block body is missing from COLUMN_BLOCK_BODY (partial DB corruption), causing `.expect(\
