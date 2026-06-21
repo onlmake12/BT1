@@ -1,1 +1,0 @@
-[File: 'notify/src/lib.rs -> Scope: Critical (15001-25000)'] [Function: handle_notify_network_alert] Can an unprivileged P2P peer relay a validly-signed Alert whose packed `message` bytes pass the `alert_relayer.rs` UTF-8 check at the wire layer but whose molecule-deserialized `as_utf8()` call in `handle_notify_network_alert` returns an error, triggering the `.expect(\

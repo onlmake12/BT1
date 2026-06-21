@@ -1,1 +1,0 @@
-[File: 'notify/src/lib.rs -> Scope: Critical (15001-25000)'] [Function: handle_register_new_block / handle_register_new_transaction (subscriber name overwrite)] Can an unprivileged RPC caller trigger a second call to `SubscriptionRpcImpl::new` (e.g., via RPC server restart or re-initialization) which re-registers the hardcoded `\
