@@ -1,1 +1,0 @@
-[File: 'rpc/src/error.rs'] [Function: custom_with_error / remove_backtrace] Can an unprivileged RPC caller submitting a transaction whose CKB-VM script execution produces a deeply recursive call stack (triggering RUST_BACKTRACE=1 or equivalent backtrace capture) cause custom_with_error to allocate an unbounded heap string via format!(\
