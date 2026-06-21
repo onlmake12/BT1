@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/mod.rs -> subcommand/import.rs + util/instrument/src/import.rs'] [Function: import / Import::read_from_json] Can an attacker-controlled JSONL import file cause `read_from_json` to panic at instrument/import.rs:94 (`expect(\
