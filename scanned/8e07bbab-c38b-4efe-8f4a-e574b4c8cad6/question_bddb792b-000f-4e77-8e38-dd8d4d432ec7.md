@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation'] [Function: impl_std_fmt!/LowerHex + Consensus::identify_name()] Can an unprivileged remote peer, under the precondition that two honest nodes compute their P2P network identity via identify_name() using format!(\
