@@ -1,1 +1,0 @@
-[File: 'spec/src/lib.rs'] [Function: ChainSpec::check_block'] Can a custom dev chain spec be constructed where a system cell's lock script uses a hash_type byte value that is valid in the packed representation but maps to a ScriptHashType variant not handled by the match arms in check_block (line 700: ScriptHashType::try_from(...).expect(\
