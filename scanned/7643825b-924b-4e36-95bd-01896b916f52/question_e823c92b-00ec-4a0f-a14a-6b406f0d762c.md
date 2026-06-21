@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/indexer_handle/mod.rs'] [Function: get_cells / dead_cells pool RwLock poisoning] Can an unprivileged RPC caller cause a panic in get_cells or get_cells_capacity if the Pool RwLock is poisoned (due to a prior panic in a writer thread holding the write lock), triggering pool.read().expect(\
