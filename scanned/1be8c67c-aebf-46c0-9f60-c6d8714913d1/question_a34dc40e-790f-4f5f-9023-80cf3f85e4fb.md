@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'] [Function: impl_std_fmt! LowerHex::fmt / Display::fmt (H256, H512, H520)] Can an unprivileged RPC caller or log-heavy workload trigger repeated format!(\

@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs -> Scope: Low (501 - 2000 points). Any other important performance improvements for CKB'] [Function: impl_std_fmt! LowerHex::fmt / Display::fmt - missing impl_fmt_via_lower_hex delegation] Can an unprivileged caller observe that Display::fmt for H256/H512/H520 does not delegate to LowerHex::fmt (e.g., via write!(f, \
