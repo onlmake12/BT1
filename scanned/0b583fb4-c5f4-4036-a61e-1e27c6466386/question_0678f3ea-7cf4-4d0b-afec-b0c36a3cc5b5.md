@@ -1,1 +1,0 @@
-[File: 'verification/contextual/src/lib.rs -> contextual_block_verifier.rs'] [Function: BlockTxsVerifier::fetched_cache] Can an unprivileged local operator arrange for the tokio runtime `Handle` stored in `BlockTxsVerifier` to be shut down or for the spawned async task to be dropped before sending on the oneshot channel, causing `self.handle.block_on(receiver).expect(\
