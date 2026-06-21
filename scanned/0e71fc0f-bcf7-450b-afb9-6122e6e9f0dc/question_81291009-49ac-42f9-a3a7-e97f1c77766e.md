@@ -1,1 +1,0 @@
-[File: 'util/app-config/src/configs/rich_indexer.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: postgres_init / build_url_for_postgres] Can an operator-local user who controls ckb.toml supply a crafted db_name value containing a double-quote and SQL metacharacters (e.g., 'legit\
