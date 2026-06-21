@@ -1,1 +1,0 @@
-[File: 'util/occupied-capacity/macros/src/lib.rs -> Scope: High (10001 - 15000 points)'] [Function: capacity_bytes! / CellMetaBuilder::from_cell_output / data_bytes try_into] Can an attacker submit a transaction with output data of length > u32::MAX bytes (if the molecule/network layer permits it), causing the `data.len().try_into().expect(\
