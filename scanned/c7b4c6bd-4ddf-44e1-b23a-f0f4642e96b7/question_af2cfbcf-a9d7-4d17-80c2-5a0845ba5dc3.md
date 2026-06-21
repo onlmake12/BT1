@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs'] [Function: SQLXPool::fetch_count] Can an unprivileged operator or internal caller, under preconditions where fetch_count is invoked with a table_name string that contains SQL metacharacters (e.g., via a future code path or test harness), trigger the call sequence fetch_count(table_name) -> format!(\

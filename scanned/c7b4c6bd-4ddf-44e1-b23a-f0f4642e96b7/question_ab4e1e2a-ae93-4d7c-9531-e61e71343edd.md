@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/store.rs'] [Function: SQLXPool::connect / postgres_init] Can an unprivileged operator, under preconditions where the CKB node is configured with a PostgreSQL rich-indexer and the db_name config value contains a double-quote character, trigger the call sequence RichIndexerService::new -> SQLXPool::connect -> postgres_init -> format!(r#\
