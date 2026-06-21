@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/uints.rs -> Scope: Critical (15001 - 25000 points)'] [Function: JsonUintVisitor::visit_str / Uint128 indexer range] Can an unprivileged indexer RPC caller, under the precondition that IndexerSearchKeyFilter uses Uint128 for capacity range bounds, trigger the call sequence get_cells with filter.output_capacity_range=[\
