@@ -1,1 +1,0 @@
-[File: 'util/constant/src/softfork/testnet.rs'] [Function: Cache::encode_key / spec/src/versionbits/mod.rs:194-196] Can an unprivileged node operator demonstrate that every call to Cache::get() and Cache::insert() allocates a new heap String via format!(\
