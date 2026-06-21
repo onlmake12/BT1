@@ -1,1 +1,0 @@
-[File: 'network/src/network.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: NetworkState::dial_inner / extract_peer_id.expect] Can a TOCTOU (time-of-check/time-of-use) race between `can_dial` and `dial_inner` cause the `extract_peer_id(&addr).expect(\
