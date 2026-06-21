@@ -1,1 +1,0 @@
-[File: 'rpc/src/module/net.rs -> Scope: Low (501-2000 points)'] [Function: add_node / NetRpcImpl] Can an unprivileged RPC caller trigger add_node with a peer_id and address where the address does not already contain a peer_id component, causing the code to perform: (1) parse address into Multiaddr, (2) format!(\
