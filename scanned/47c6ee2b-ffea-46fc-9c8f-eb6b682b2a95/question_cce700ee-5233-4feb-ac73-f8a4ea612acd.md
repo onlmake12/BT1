@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs -> Scope: High (10001-15000)'] [Function: is_cell_filter_match] Can an unprivileged transaction sender craft a transaction with the maximum allowed output_data size (up to the block byte limit, ~600 KB), causing is_cell_filter_match to execute format!(\
