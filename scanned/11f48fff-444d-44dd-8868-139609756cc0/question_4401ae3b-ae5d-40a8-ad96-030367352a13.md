@@ -1,1 +1,0 @@
-[File: 'util/indexer/src/service.rs'] [Function: IndexerHandle::get_cells / get_cells_capacity] Can an unprivileged local RPC caller trigger a panic via a poisoned RwLock by causing a panic in a concurrent pool writer thread (e.g., during tx-pool indexing), so that the subsequent `pool.read().expect(\
