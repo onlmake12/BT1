@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/core/src/std_fmt.rs'] [Function: impl_std_fmt! Debug for H256 -> h256! proc-macro] Can an unprivileged script author craft a transaction that exposes an invariant violation where the h256! proc-macro in macros/src/lib.rs line 53-56 calls format!(\
