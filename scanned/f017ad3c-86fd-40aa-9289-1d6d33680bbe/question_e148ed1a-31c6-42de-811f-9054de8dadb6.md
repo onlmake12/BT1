@@ -1,1 +1,0 @@
-[File: 'util/onion/src/tor_controller.rs'] [Function: TorController::get_uptime] Can an unprivileged attacker who controls the Tor daemon's response to `GETINFO uptime` under the precondition that the onion service is running and the uptime heartbeat task is active trigger a parse failure in `get_uptime()` by returning a non-numeric or quoted string (e.g., `\
