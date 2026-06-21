@@ -1,1 +1,0 @@
-[File: 'shared/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: block_reward_internal / RewardCalculator] Can an unprivileged RPC caller trigger get_block_economic_state on a finalized block whose stored cellbase transaction has an empty witnesses vector, causing block_reward_internal (util/reward-calculator/src/lib.rs:97) to hit `.expect(\

@@ -1,1 +1,0 @@
-[File: 'shared/src/lib.rs -> Scope: Note (0 - 500 points). Any local RPC API crash'] [Function: HeaderIndexView::from_slice_should_be_ok / shared/src/types/mod.rs] Can a corrupted or truncated header_map entry (stored slice length < 88 bytes but != 120 bytes) cause HeaderIndexView::from_slice_should_be_ok (shared/src/types/mod.rs:71-77) to panic via `.expect(\
