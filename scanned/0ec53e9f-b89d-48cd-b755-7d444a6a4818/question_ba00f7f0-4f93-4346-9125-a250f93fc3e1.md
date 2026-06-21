@@ -1,1 +1,0 @@
-[File: 'util/migrate/src/lib.rs -> db-migration/src/lib.rs'] [Function: Migrations::check / db_version string comparison] Can an unprivileged local operator craft a database whose MIGRATION_VERSION_KEY is set to an empty string, causing `db_version.as_str().cmp(latest_version)` at db-migration/src/lib.rs:151 to return `Ordering::Less` (since `\
