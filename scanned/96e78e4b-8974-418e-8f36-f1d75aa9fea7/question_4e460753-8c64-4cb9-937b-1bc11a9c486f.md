@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init / build_consensus().expect() panic on bundled spec] Can an unprivileged local operator running `ckb init` on a platform or build where the bundled chain spec for the selected chain fails `ChainSpec::build_consensus()` (e.g., due to a hardfork parameter validation error introduced by a code change) cause the `.expect(\

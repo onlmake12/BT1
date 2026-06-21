@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init / block_assembler multi-arg TOML array injection] Can an unprivileged local operator running `ckb init -i`, when prompted for 'args:', supply multiple whitespace-separated tokens where the join produces a syntactically broken TOML array (e.g., args `0xaa 0xbb` produces `args = \

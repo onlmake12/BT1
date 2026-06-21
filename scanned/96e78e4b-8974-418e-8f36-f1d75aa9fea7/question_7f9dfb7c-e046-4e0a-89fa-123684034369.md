@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init / interactive block_assembler_code_hash prompt] Can an unprivileged local operator running `ckb init -i` under interactive mode, when prompted for 'code hash:', supply a string containing a double-quote character (e.g. `0xdeadbeef\
