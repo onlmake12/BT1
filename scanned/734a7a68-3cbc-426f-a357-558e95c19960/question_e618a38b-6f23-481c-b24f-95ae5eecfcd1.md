@@ -1,1 +1,0 @@
-[File: 'network/src/peer_store/peer_store_db.rs'] [Function: AddrInfo deserialization / flags default] Can an attacker cause a node that upgrades from an older CKB version (whose addr_manager.db lacks the flags field) to treat all loaded peers as having Flags::COMPATIBILITY set via the #[serde(default = \
