@@ -1,1 +1,0 @@
-[File: 'network/src/peer_store/peer_store_impl.rs -> Scope: High (10001 - 15000 points)'] [Function: add_connected_peer] Can an unprivileged remote peer cause a node panic by triggering add_connected_peer with a Multiaddr that does not contain a /p2p/ component (no PeerId), causing the `.expect(\
