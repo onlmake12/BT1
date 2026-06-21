@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/lib.rs'] [Function: SQLXPool::connect / postgres_init] Can an unprivileged operator-local user supply a db_name in the RichIndexerConfig that contains SQL metacharacters (e.g., a double-quote or semicolon), causing the format!(r#'CREATE DATABASE \
