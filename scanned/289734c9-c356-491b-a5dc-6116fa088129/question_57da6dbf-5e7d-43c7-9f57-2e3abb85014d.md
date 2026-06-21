@@ -1,1 +1,0 @@
-[File: 'util/rich-indexer/src/service.rs' + 'util/rich-indexer/src/store.rs'] [Function: SQLXPool::fetch_count table_name parameter] Can an internal caller of fetch_count pass a table_name string that contains SQL metacharacters (e.g., from a config value or test harness), causing the format!(\
