@@ -1,0 +1,1 @@
+Let me look at the reward verifier and the block assembler's cellbase construction to find any inconsistency.
