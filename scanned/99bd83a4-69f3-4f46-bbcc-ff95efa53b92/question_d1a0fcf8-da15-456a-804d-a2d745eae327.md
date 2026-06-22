@@ -1,1 +1,0 @@
-[File: 'util/indexer-sync/src/custom_filters.rs -> Scope: Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism'] [Function: is_cell_filter_match] Can an unprivileged operator configure a cell_filter Rhai expression that performs U256 division by zero (e.g., `to_uint(output_data) / to_uint(\
