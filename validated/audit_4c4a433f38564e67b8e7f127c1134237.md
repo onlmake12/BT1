@@ -1,0 +1,1 @@
+I need to verify the `get_tx_indices` deduplication logic in the RPC path and the `merkle_cbt` version to complete the analysis.

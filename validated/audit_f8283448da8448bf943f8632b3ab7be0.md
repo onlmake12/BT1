@@ -1,0 +1,1 @@
+Looking at the external report's vulnerability class — **any unprivileged caller can invoke a state-mutating function with an identifier they do not own, causing DoS for legitimate operations** — I need to find a CKB analog where an unprivileged caller can mutate pool/sync state for a resource they did not submit/create.
