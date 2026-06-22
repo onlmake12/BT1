@@ -1,1 +1,0 @@
-[File: 'util/indexer/src/service.rs'] [Function: IndexerHandle::get_cells / get_cells_capacity] Can an unprivileged local RPC caller trigger a panic by causing the value stored under a CellLockScript key to be not exactly 32 bytes, so that `packed::Byte32::from_slice(&value).expect(\
