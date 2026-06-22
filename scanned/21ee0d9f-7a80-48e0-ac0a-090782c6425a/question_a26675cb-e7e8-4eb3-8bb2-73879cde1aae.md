@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/macros/src/lib.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'] [Function: impl_hash / SATOSHI_PUBKEY_HASH constant cross-module correctness in genesis DAO] Can an unprivileged attacker, under the precondition that SATOSHI_PUBKEY_HASH = h160!(\

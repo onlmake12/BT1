@@ -1,1 +1,0 @@
-[File: 'util/fixed-hash/macros/src/lib.rs -> Scope: High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts'] [Function: impl_hash / TYPE_ID_CODE_HASH constant cross-module correctness] Can an unprivileged transaction sender, under the precondition that TYPE_ID_CODE_HASH = h256!(\
