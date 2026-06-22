@@ -1,0 +1,1 @@
+Let me look at the `process_io` function and how `consumed_cycles` is reported to understand the full cycle accounting picture.
