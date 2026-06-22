@@ -1,0 +1,1 @@
+Looking at the CKB codebase for an analog to the "missing deduplication before aggregation" vulnerability class, I need to examine where lists of items are processed without duplicate filtering before being used in calculations.
