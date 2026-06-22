@@ -1,0 +1,1 @@
+Let me look at the contextual verification pipeline to understand if `DaoCalculator::transaction_fee()` is called during transaction verification.
