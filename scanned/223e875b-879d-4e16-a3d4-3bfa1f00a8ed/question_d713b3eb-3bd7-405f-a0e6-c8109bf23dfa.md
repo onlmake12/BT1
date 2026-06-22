@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/fee_estimator.rs -> Scope: Note (0 - 500 points). Any local command line crash'] [Function: EstimateMode serde deserialization (rename_all = snake_case)] Can an unprivileged RPC caller send estimate_fee_rate with estimate_mode set to an unrecognized string variant (e.g. \

@@ -1,1 +1,0 @@
-[File: 'util/jsonrpc-types/src/experiment.rs'] [Function: calculate_dao_maximum_withdraw WithdrawingOutPoint -> index u32::MAX (null OutPoint)] Can an unprivileged RPC caller pass a `WithdrawingOutPoint` with `index: \
