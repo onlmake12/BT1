@@ -1,1 +1,0 @@
-[File: 'script/src/types.rs'] [Function: TxData::new (line 702-704)] Can an unprivileged transaction submitter craft a ResolvedTransaction whose resolved_cell_deps contains a CellMeta for which the data_loader's load_cell_data_hash returns None, triggering the unconditional .expect(\
