@@ -1,0 +1,1 @@
+Let me look at the contextual block verifier more carefully to understand how `txs_fees` is populated and how the fee from `FeeCalculator` is used.
