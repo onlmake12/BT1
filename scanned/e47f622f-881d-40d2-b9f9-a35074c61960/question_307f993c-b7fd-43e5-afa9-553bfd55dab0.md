@@ -1,1 +1,0 @@
-[File: 'ckb-bin/src/subcommand/init.rs'] [Function: init() / build_consensus().expect()] Can an unprivileged local operator supply a custom chain spec via '--import-spec <file>' that successfully passes file-copy but contains a spec that causes build_consensus() to fail, triggering the .expect(\
