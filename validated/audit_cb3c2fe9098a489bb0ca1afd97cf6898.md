@@ -1,0 +1,1 @@
+Let me look at the block verification code, specifically the reward verifier and the block verifier.
