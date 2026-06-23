@@ -1,1 +1,0 @@
-Let me look at the tx-pool persistence and restoration code, which is a key area for residual state issues.
