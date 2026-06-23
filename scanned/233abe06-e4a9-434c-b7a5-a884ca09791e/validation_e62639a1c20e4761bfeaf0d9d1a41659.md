@@ -1,1 +1,0 @@
-Let me look at the `DaoHeaderVerifier` and the DAO field verification more carefully.
