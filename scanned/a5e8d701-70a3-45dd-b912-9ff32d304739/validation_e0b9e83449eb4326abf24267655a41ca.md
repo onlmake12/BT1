@@ -1,1 +1,0 @@
-Let me look at the `FeeCalculator` and the `proposal_reward` function more carefully for the double-counting analog.
