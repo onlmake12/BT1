@@ -45,7 +45,6 @@ else:
     else:
         BASE_URL = f"https://deepwiki.com/{SOURCE_REPO}"
 
-
 scope_files = [
     'block-filter/src/filter.rs',
     'block-filter/src/lib.rs',
@@ -520,7 +519,6 @@ scope_files = [
     'verification/traits/src/lib.rs',
 ]
 
-
 target_scopes = [
     # Critical: 15001 - 25000 points
     "Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network",
@@ -733,3 +731,91 @@ No extra text.
 """
     return prompt
 
+
+def validation_format(report: str) -> str:
+    """
+    Generate a strict bounty-style validation prompt for security claims.
+    """
+    prompt = f"""# VALIDATION PROMPT
+
+## Security Claim
+{report}
+
+## Rules
+- Validate only the submitted claim.
+- Check Security.md/Researcher.md for scope, exclusions, and valid impact classes.
+- Do not create a new vulnerability if the submitted claim is weak or invalid.
+- Do not upgrade severity unless the provided evidence proves the higher impact.
+- Reject admin-only, owner-only, trusted-operator, leaked-key, best-practice, docs/style, gas-only, and purely theoretical issues.
+- Reject if the exploit requires unrealistic assumptions, victim mistakes, missing external context, or unsupported protocol behavior.
+- A valid report must be triggerable by an unprivileged user, unless the claim proves privilege escalation from a user path.
+- The final impact must match an in-scope bounty impact, not just a generic code bug.
+- Reject any issue whose final impact is not one of the allowed CKB bounty impacts listed below.
+- Prefer #NoVulnerability over speculative reports.
+
+## Allowed Impact Scope
+Only these impacts are valid:
+- Critical (15001 - 25000 points). Vulnerabilities which could easily crash the whole CKB network.
+- Critical (15001 - 25000 points). Vulnerabilities which could easily cause consensus deviation.
+- Critical (15001 - 25000 points). Vulnerabilities which could easily damage CKB economy.
+- High (10001 - 15000 points). Vulnerabilities which could easily crash a CKB node.
+- High (10001 - 15000 points). Vulnerabilities or bad designs which could cause CKB network congestion with few costs.
+- High (10001 - 15000 points). Incorrect implementation or behavior of CKB-VM or system scripts.
+- Medium (2001 - 10000 points). Suboptimal implementation of CKB state storage mechanism.
+- Low (501 - 2000 points). Any other important performance improvements for CKB.
+- Note (0 - 500 points). Any local RPC API crash.
+- Note (0 - 500 points). Any local command line crash.
+
+If the submitted claim does not concretely prove one of the allowed impacts above, it is invalid.
+
+## Required Validation Checks
+All must pass:
+1. Exact in-scope file, function, and line/code references.
+2. Clear root cause and broken security/accounting assumption.
+3. Reachable exploit path: preconditions -> attacker action -> trigger -> bad result.
+4. Existing checks/guards reviewed and shown insufficient.
+5. Concrete impact that exactly matches one allowed CKB bounty impact above, with realistic likelihood.
+6. Reproducible proof path: unit PoC, fork test, invariant/fuzz test, or exact manual steps.
+7. No obvious rejection reason from Security.md, known issues, privileges, or scope exclusions.
+
+## Silent Triage Questions
+Before output, internally answer:
+- Can a normal external user trigger this?
+- Does the code actually behave as claimed?
+- Is the impact caused by this protocol, not by an external dependency alone?
+- Is the loss/freeze/insolvency concrete, not hypothetical?
+- Would a bounty triager accept the proof?
+- What exact test would prove it?
+
+## Output
+If valid, output exactly:
+
+Audit Report
+
+## Title
+[Clear vulnerability statement] - ([File: file_path])
+
+## Summary
+[2-3 sentence summary of the bug and impact]
+
+## Finding Description
+[Exact code path, root cause, exploit flow, and why existing checks fail]
+
+## Impact Explanation
+[Concrete allowed CKB bounty impact and severity rationale]
+
+## Likelihood Explanation
+[Attacker capability, required conditions, feasibility, repeatability]
+
+## Recommendation
+[Specific fix guidance]
+
+## Proof of Concept
+[Minimal reproducible steps or fuzz/invariant/fork test plan]
+
+If invalid, output exactly:
+#NoVulnerability found for this question.
+
+Output only one of the two outcomes above. No extra text.
+"""
+    return prompt

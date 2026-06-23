@@ -16,7 +16,7 @@ from selenium.webdriver.support import expected_conditions as EC
 from selenium.webdriver.support.ui import WebDriverWait
 from webdriver_manager.chrome import ChromeDriverManager
 
-from questions import audit_format, BASE_URL, scan_format
+from questions import audit_format, BASE_URL, scan_format, validation_format
 import random
 
 
@@ -106,6 +106,8 @@ class Validator:
 
                 if base_filename.startswith("audit"):
                     formatted_question = scan_format(question_gotten)
+                elif base_filename.startswith("validation"):
+                    formatted_question = validation_format(question_gotten)
                 else:
                     formatted_question = audit_format(question_gotten)
 
