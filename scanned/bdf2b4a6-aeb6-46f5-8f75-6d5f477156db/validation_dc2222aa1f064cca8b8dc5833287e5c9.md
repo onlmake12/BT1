@@ -1,1 +1,0 @@
-Let me look at the `Fd::is_read()` implementation and the full cycle-charging flow.
