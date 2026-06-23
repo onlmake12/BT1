@@ -1,1 +1,0 @@
-Looking at the CKB codebase for an analog to the "unhandled return value causing silent failure" vulnerability class, I need to find places where a function returns a `Result`/status indicating success or failure, but the caller discards it.
