@@ -1,1 +1,0 @@
-Let me look at the contextual block verifier and the chain's verify logic more carefully.
