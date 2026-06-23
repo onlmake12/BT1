@@ -1,1 +1,0 @@
-Let me read the relevant section of `transaction_verifier.rs` where `to_rational()` and `from_full_value_unchecked` are used:
