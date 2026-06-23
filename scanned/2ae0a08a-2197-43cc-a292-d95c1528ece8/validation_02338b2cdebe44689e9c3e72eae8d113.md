@@ -1,1 +1,0 @@
-Let me look at the proposal reward calculation and the `store_data` syscall more carefully, as these are the most promising areas.
