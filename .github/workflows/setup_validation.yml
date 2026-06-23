@@ -1,4 +1,4 @@
-name: 1 Generate Scope
+name: Setup Validation 
 
 on:
   workflow_dispatch:  # allows manual trigger from Actions tab
