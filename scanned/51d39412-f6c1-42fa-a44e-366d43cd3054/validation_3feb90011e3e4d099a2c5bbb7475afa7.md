@@ -1,1 +1,0 @@
-Let me look at the `pool_map.estimate_fee_rate` implementation and the `TxPoolInfo` min_fee_rate unit description more carefully.
