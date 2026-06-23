@@ -1,1 +1,0 @@
-Let me look at the `NetworkController::ping_peers` implementation to see how the channel send works.
