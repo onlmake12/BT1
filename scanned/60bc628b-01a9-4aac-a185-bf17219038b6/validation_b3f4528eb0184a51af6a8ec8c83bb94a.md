@@ -1,1 +1,0 @@
-Let me examine the key code paths in detail before reaching a conclusion.
