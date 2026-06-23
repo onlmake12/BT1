@@ -1,1 +1,0 @@
-Let me look at how `Completed.fee` is computed in the block transaction verifier, and also check the `calculate_dao_field` RPC for any accounting gaps.
