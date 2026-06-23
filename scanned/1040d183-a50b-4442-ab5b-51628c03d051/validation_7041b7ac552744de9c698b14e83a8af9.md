@@ -1,1 +1,0 @@
-Let me read the `OverlayCellChecker` implementation and the `ResolvedTransaction::check` function to complete the analysis.
