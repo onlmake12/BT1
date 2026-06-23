@@ -1,1 +1,0 @@
-Let me look at the specific `estimate_cycles` function in chain.rs and the ScriptVerifier's verify signature.
