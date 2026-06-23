@@ -1,1 +1,0 @@
-Let me look at the contextual block verifier's DAO field calculation and how it handles the cellbase transaction.
