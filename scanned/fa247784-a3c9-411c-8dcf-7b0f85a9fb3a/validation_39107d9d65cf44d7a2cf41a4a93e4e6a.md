@@ -1,1 +1,0 @@
-Let me look at the actual `packed::Block` struct definition to confirm the clone behavior.
