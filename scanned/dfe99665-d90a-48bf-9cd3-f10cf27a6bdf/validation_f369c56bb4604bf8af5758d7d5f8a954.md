@@ -1,1 +1,0 @@
-Let me look at the `Peers` struct and the sync state machine more carefully for stale state issues.
