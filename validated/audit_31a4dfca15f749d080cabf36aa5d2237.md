@@ -1,0 +1,119 @@
+Audit Report
+
+## Title
+Unbounded `pending_get_block_proposals` State Inflation via Unauthenticated `GetBlockProposal` P2P Messages — (File: `sync/src/relayer/get_block_proposal_process.rs`)
+
+## Summary
+Any unprivileged P2P peer can send repeated `GetBlockProposal` messages containing crafted `ProposalShortId` values absent from the local tx pool. These IDs are unconditionally inserted into the shared `pending_get_block_proposals` DashMap with no per-peer or global size cap, allowing unbounded memory growth between periodic drain cycles. A single attacker peer can exhaust node memory and crash the process.
+
+## Finding Description
+`GetBlockProposalProcess::execute()` performs two checks: a per-message count bound (`max_block_proposals_limit × max_uncles_num` ≈ 3,000) and an intra-message deduplication check. After these, proposals absent from the tx pool are collected as `not_exist_proposals` and passed directly to `insert_get_block_proposals` with no further guard: [1](#0-0) 
+
+`insert_get_block_proposals` performs no size check: [2](#0-1) 
+
+`pending_get_block_proposals` is an unbounded `DashMap`: [3](#0-2) 
+
+The map is only drained periodically by `prune_tx_proposal_request` via `drain_get_block_proposals`: [4](#0-3) 
+
+By contrast, `add_ask_for_txs` — the analogous function for `unknown_tx_hashes` — enforces both a global cap (`MAX_UNKNOWN_TX_HASHES_SIZE = 50,000`) and a per-peer cap (`MAX_UNKNOWN_TX_HASHES_SIZE_PER_PEER = 32,767`), banning the peer when exceeded: [5](#0-4) 
+
+No equivalent guard exists for `pending_get_block_proposals`. No rate limiting for `GetBlockProposal` messages was found anywhere in the sync/relay code.
+
+## Impact Explanation
+This matches **High: Vulnerabilities which could easily crash a CKB node**. Each `ProposalShortId` key is 10 bytes; with `HashSet<PeerIndex>` overhead, each entry costs ~100–200 bytes. At ≈3,000 proposals per message and a high message rate, the map can grow to gigabytes of RAM before the next drain cycle, causing an OOM crash of the node process. The drain itself becomes increasingly expensive as the map grows, stalling the relayer timer loop and compounding the degradation.
+
+## Likelihood Explanation
+Attacker preconditions are minimal: a standard P2P connection is sufficient. No keys, stake, or special role are required. The exploit is deterministic — any peer sending crafted proposal IDs not present in the pool will trigger the insertion path every time. No existing code path bans or throttles a peer for inflating `pending_get_block_proposals`. The per-message count check (≈3,000) is a feature, not a defense — it simply sets the per-message batch size for the attacker.
+
+## Recommendation
+Apply the same guard pattern used in `add_ask_for_txs`:
+1. Introduce constants `MAX_PENDING_GET_BLOCK_PROPOSALS_SIZE` and `MAX_PENDING_GET_BLOCK_PROPOSALS_SIZE_PER_PEER`.
+2. In `insert_get_block_proposals`, after insertion, check whether the global map size or the per-peer contribution exceeds these limits.
+3. If exceeded, return a `ProtocolMessageIsMalformed`-equivalent status from `execute()` and ban the peer for `BAD_MESSAGE_BAN_TIME`, mirroring the `TooManyUnknownTransactions` path in `add_ask_for_txs`.
+
+## Proof of Concept
+```
+1. Connect to a CKB node as a standard P2P peer.
+2. In a tight loop, send RelayV3 GetBlockProposal messages:
+     block_hash = <any valid tip hash>
+     proposals  = [random 10-byte ProposalShortId × 3000]
+                  // all distinct within the message (passes dedup check)
+                  // none present in the node's tx pool (passes pool lookup)
+3. Each message passes both checks and inserts 3000 entries into
+   pending_get_block_proposals with no rejection.
+4. After N messages, node RSS grows by N × 3000 × ~150 bytes.
+5. No ban is issued; the loop continues until OOM or drain catches up
+   (drain itself becomes expensive at large map sizes).
+6. Verifiable locally: instrument pending_get_block_proposals.len()
+   before and after each message; observe monotonic growth with no cap.
+```
+
+### Citations
+
+**File:** sync/src/relayer/get_block_proposal_process.rs (L68-77)
+```rust
+        let not_exist_proposals: Vec<packed::ProposalShortId> = proposals
+            .into_iter()
+            .filter(|short_id| !fetched_transactions.contains_key(short_id))
+            .collect();
+
+        // Cache request, try process on timer
+        self.relayer
+            .shared()
+            .state()
+            .insert_get_block_proposals(self.peer, not_exist_proposals);
+```
+
+**File:** sync/src/types/mod.rs (L1330-1330)
+```rust
+    pending_get_block_proposals: DashMap<packed::ProposalShortId, HashSet<PeerIndex>>,
+```
+
+**File:** sync/src/types/mod.rs (L1507-1528)
+```rust
+        if unknown_tx_hashes.len() >= MAX_UNKNOWN_TX_HASHES_SIZE
+            || unknown_tx_hashes.len()
+                >= self.peers.state.len() * MAX_UNKNOWN_TX_HASHES_SIZE_PER_PEER
+        {
+            warn!(
+                "unknown_tx_hashes is too long, len: {}",
+                unknown_tx_hashes.len()
+            );
+
+            let mut peer_unknown_counter = 0;
+            for (_hash, priority) in unknown_tx_hashes.iter() {
+                for peer in priority.peers.iter() {
+                    if *peer == peer_index {
+                        peer_unknown_counter += 1;
+                    }
+                }
+            }
+            if peer_unknown_counter >= MAX_UNKNOWN_TX_HASHES_SIZE_PER_PEER {
+                return StatusCode::TooManyUnknownTransactions.into();
+            }
+
+            return Status::ignored();
+```
+
+**File:** sync/src/types/mod.rs (L1586-1592)
+```rust
+    pub fn drain_get_block_proposals(
+        &self,
+    ) -> DashMap<packed::ProposalShortId, HashSet<PeerIndex>> {
+        let ret = self.pending_get_block_proposals.clone();
+        self.pending_get_block_proposals.clear();
+        ret
+    }
+```
+
+**File:** sync/src/types/mod.rs (L1594-1601)
+```rust
+    pub fn insert_get_block_proposals(&self, pi: PeerIndex, ids: Vec<packed::ProposalShortId>) {
+        for id in ids.into_iter() {
+            self.pending_get_block_proposals
+                .entry(id)
+                .or_default()
+                .insert(pi);
+        }
+    }
+```
