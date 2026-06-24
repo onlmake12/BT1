@@ -1,0 +1,128 @@
+Audit Report
+
+## Title
+Missing Per-Peer Rate Limiting on `GetBlockFilters` Enables Resource Exhaustion DoS — (`sync/src/filter/get_block_filters_process.rs`)
+
+## Summary
+The `BlockFilter` protocol handler performs no per-peer rate limiting before dispatching `GetBlockFilters` messages to `GetBlockFiltersProcess::execute()`. Each such message triggers up to 1,000 sequential RocksDB reads and allocates up to ~1.8 MB of heap for the response. The `Relayer` protocol already implements a `RateLimiter<(PeerIndex, u32)>` at 30 req/s per peer for the same reason, but no equivalent guard exists in the `BlockFilter` handler.
+
+## Finding Description
+`GetBlockFiltersProcess::execute()` iterates up to `BATCH_SIZE = 1000` times, calling `active_chain.get_block_hash(block_number)` and `active_chain.get_block_filter(&block_hash)` per iteration — two RocksDB reads per block — accumulating results into `block_hashes` and `filters` Vecs until the 1.8 MB size cap is hit, then serializes and sends the full response via `async_send_message_to`. [1](#0-0) [2](#0-1) [3](#0-2) 
+
+The `BlockFilter` struct holds only `shared: Arc<SyncShared>` — no rate limiter field — and `try_process` dispatches directly to `execute()` with zero rate checking: [4](#0-3) [5](#0-4) 
+
+By contrast, `Relayer` defines a `RateLimiter<(PeerIndex, u32)>` keyed by peer and message type, initialized at 30 req/s, and checks it before any message dispatch: [6](#0-5) [7](#0-6) [8](#0-7) 
+
+No analogous guard exists anywhere in `sync/src/filter/`.
+
+## Impact Explanation
+A single unprivileged peer sending `GetBlockFilters(start_number=0)` in a tight loop causes the node to perform up to 1,000 RocksDB reads and allocate up to ~1.8 MB per message, with no server-side throttle. Multiple concurrent peers amplify this linearly, saturating the async task queue, disk I/O, and heap. This matches the **High** impact class: *"Vulnerabilities or bad designs which could cause CKB network congestion with few costs"* and *"Vulnerabilities which could easily crash a CKB node."*
+
+## Likelihood Explanation
+The attack requires only a valid P2P connection and the ability to send a well-formed `GetBlockFilters` message — a single `Uint64` field, trivially constructed. No authentication, PoW, stake, or special privilege is required. The precondition (node has filters built for a long chain) is the normal production state of any full node with `block_filter` enabled. The attack is fully repeatable and amplifiable with multiple peers.
+
+## Recommendation
+Add a `RateLimiter<(PeerIndex, u32)>` field to the `BlockFilter` struct, mirroring the pattern in `Relayer`. Initialize it in `BlockFilter::new()` with the same 30 req/s quota. In `try_process`, check the rate limiter before dispatching to any process handler, and return `StatusCode::TooManyRequests` (with optional peer ban) on violation. Apply the same guard to `GetBlockFilterHashes` and `GetBlockFilterCheckPoints` handlers in the same `try_process` match arm.
+
+## Proof of Concept
+```rust
+// Attacker: connect N peers, each sending GetBlockFilters(0) in a tight loop
+let msg = packed::BlockFilterMessage::new_builder()
+    .set(packed::GetBlockFilters::new_builder()
+        .start_number(0u64.pack())
+        .build())
+    .build();
+loop {
+    net.send(&node, SupportProtocols::Filter, msg.as_bytes());
+    // no sleep — no server-side rate limit will stop this
+}
+```
+Each iteration causes the server to perform up to 1,000 RocksDB reads (`get_block_hash` + `get_block_filter`) and allocate up to ~1.8 MB. With N peers doing this concurrently, the node's async thread pool, disk I/O, and memory are exhausted. Verifiable by instrumenting `GetBlockFiltersProcess::execute()` with a counter and observing unbounded invocation rate under load.
+
+### Citations
+
+**File:** sync/src/filter/get_block_filters_process.rs (L9-9)
+```rust
+const BATCH_SIZE: BlockNumber = 1000;
+```
+
+**File:** sync/src/filter/get_block_filters_process.rs (L45-57)
+```rust
+            for _ in 0..BATCH_SIZE {
+                if let Some(block_hash) = active_chain.get_block_hash(block_number) {
+                    if let Some(block_filter) = active_chain.get_block_filter(&block_hash) {
+                        if current_content_size
+                            + block_hash.as_slice().len()
+                            + 4
+                            + block_filter.as_slice().len()
+                            + 4
+                            >= (1.8 * 1024.0 * 1024.0) as usize
+                        {
+                            // Break if the encoded size of `block_hash` + `block_filter` + `start_number` + molecule header increase reaches 1.8MB, to avoid frame size too large
+                            break;
+                        }
+```
+
+**File:** sync/src/filter/get_block_filters_process.rs (L73-81)
+```rust
+            let content = packed::BlockFilters::new_builder()
+                .start_number(start_number)
+                .block_hashes(block_hashes)
+                .filters(filters)
+                .build();
+            let message = packed::BlockFilterMessage::new_builder()
+                .set(content)
+                .build();
+            async_send_message_to(&self.nc, self.peer, &message).await
+```
+
+**File:** sync/src/filter/mod.rs (L22-25)
+```rust
+pub struct BlockFilter {
+    /// Sync shared state
+    shared: Arc<SyncShared>,
+}
+```
+
+**File:** sync/src/filter/mod.rs (L39-44)
+```rust
+        match message {
+            packed::BlockFilterMessageUnionReader::GetBlockFilters(msg) => {
+                GetBlockFiltersProcess::new(msg, self, nc, peer)
+                    .execute()
+                    .await
+            }
+```
+
+**File:** sync/src/relayer/mod.rs (L63-67)
+```rust
+type RateLimiter<T> = governor::RateLimiter<
+    T,
+    governor::state::keyed::HashMapStateStore<T>,
+    governor::clock::DefaultClock,
+>;
+```
+
+**File:** sync/src/relayer/mod.rs (L78-82)
+```rust
+pub struct Relayer {
+    chain: ChainController,
+    pub(crate) shared: Arc<SyncShared>,
+    rate_limiter: RateLimiter<(PeerIndex, u32)>,
+}
+```
+
+**File:** sync/src/relayer/mod.rs (L113-123)
+```rust
+        let should_check_rate =
+            !matches!(message, packed::RelayMessageUnionReader::CompactBlock(_));
+
+        if should_check_rate
+            && self
+                .rate_limiter
+                .check_key(&(peer, message.item_id()))
+                .is_err()
+        {
+            return StatusCode::TooManyRequests.with_context(message.item_name());
+        }
+```

