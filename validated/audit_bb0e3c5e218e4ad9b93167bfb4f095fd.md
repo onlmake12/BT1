@@ -1,0 +1,217 @@
+Audit Report
+
+## Title
+Minimum Fee Check Uses Raw Byte Size Instead of Transaction Weight, Allowing Below-Minimum Effective Fee Rate Transactions — (File: `tx-pool/src/util.rs`)
+
+## Summary
+
+`check_tx_fee` in `tx-pool/src/util.rs` enforces `min_fee_rate` using only the serialized byte size of a transaction, not the true transaction weight (`max(tx_size, cycles * DEFAULT_BYTES_PER_CYCLES)`). A transaction with near-maximum cycle consumption but minimal byte size passes the admission gate while its actual effective fee rate — as computed by `TxEntry::fee_rate()` for ordering and eviction — can be orders of magnitude below the configured minimum. No second fee check is performed after `verify_rtx` determines actual cycles. The admitted transaction is relayed to all peers, causing disproportionate CPU consumption across the network relative to the fee paid.
+
+## Finding Description
+
+`get_transaction_weight` defines the canonical weight used for pool ordering and eviction:
+
+```rust
+// util/types/src/core/tx_pool.rs L298-303
+pub fn get_transaction_weight(tx_size: usize, cycles: u64) -> u64 {
+    std::cmp::max(
+        tx_size as u64,
+        (cycles as f64 * DEFAULT_BYTES_PER_CYCLES) as u64,
+    )
+}
+``` [1](#0-0) 
+
+`TxEntry::fee_rate()` uses this weight:
+
+```rust
+// tx-pool/src/component/entry.rs L115-118
+pub fn fee_rate(&self) -> FeeRate {
+    let weight = get_transaction_weight(self.size, self.cycles);
+    FeeRate::calculate(self.fee, weight)
+}
+``` [2](#0-1) 
+
+However, the admission gate `check_tx_fee` uses only `tx_size`, with a comment explicitly acknowledging the discrepancy:
+
+```rust
+// tx-pool/src/util.rs L42-52
+// Theoretically we cannot use size as weight directly to calculate fee_rate,
+// here min fee rate is used as a cheap check,
+// so we will use size to calculate fee_rate directly
+let min_fee = tx_pool.config.min_fee_rate.fee(tx_size as u64);
+if fee < min_fee {
+    return Err(Reject::LowFeeRate(...));
+}
+``` [3](#0-2) 
+
+In `_process_tx`, `pre_check` (which calls `check_tx_fee`) runs before `verify_rtx` determines actual cycles. After verification, the entry is created with the real cycles and the already-approved fee — no second fee check is performed:
+
+```rust
+// tx-pool/src/process.rs L715-753
+let (ret, snapshot) = self.pre_check(&tx).await;          // fee checked here (size only)
+let (tip_hash, rtx, status, fee, tx_size) = try_or_return_with_snapshot!(ret, snapshot);
+// ...
+let verified_ret = verify_rtx(...).await;                  // cycles determined here
+let verified = try_or_return_with_snapshot!(verified_ret, snapshot);
+// ...
+let entry = TxEntry::new(rtx, verified.cycles, fee, tx_size); // no re-check
+let (ret, submit_snapshot) = self.submit_entry(tip_hash, entry, status).await;
+``` [4](#0-3) 
+
+The same pattern appears in `readd_detached_tx`: [5](#0-4) 
+
+## Impact Explanation
+
+This matches the **High** bounty impact: *"Vulnerabilities or bad designs which could cause CKB network congestion with few costs."*
+
+With default configuration (`min_fee_rate = 1000 shannons/KW`, `max_tx_verify_cycles = 70,000,000`):
+
+| Parameter | Value |
+|---|---|
+| `tx_size` | 200 bytes |
+| `cycles` | 70,000,000 |
+| `weight` | `max(200, 70_000_000 × 0.000_170_571_4)` = **11,940** |
+| Fee check threshold | `1000 × 200 / 1000` = **200 shannons** |
+| Actual effective fee rate | `200 × 1000 / 11,940` ≈ **16 shannons/KW** |
+| Configured minimum | **1000 shannons/KW** |
+
+The attacker pays 200 shannons per transaction. Each such transaction forces every receiving node to execute up to 70,000,000 script cycles of verification work before admitting and relaying it further. The fee-to-CPU-cost ratio is ~62× worse than the minimum the protocol intends to enforce. An attacker with a set of pre-funded UTXOs can submit a batch of such transactions, causing sustained high CPU load across the network at minimal cost. Pool eviction (which correctly uses weight-based fee rate) will eventually remove these entries, but only after the verification and relay cost has already been paid by all nodes.
+
+## Likelihood Explanation
+
+The attack is reachable by any unprivileged user via `send_transaction` RPC or P2P relay. No special privilege is required. The attacker needs: (1) a deployed cell containing a tight-loop script consuming near-maximum cycles, (2) UTXOs locked by that script, and (3) fees just above `min_fee_rate.fee(tx_size)`. The code comment itself confirms the gap is known and intentional as a "cheap check," meaning no guard was added after cycle determination. The attack is repeatable for each UTXO the attacker controls.
+
+## Recommendation
+
+After `verify_rtx` returns `verified.cycles`, perform a second fee check using the true weight before creating the `TxEntry`:
+
+```rust
+let verified = try_or_return_with_snapshot!(verified_ret, snapshot);
+
+// Re-check fee rate with actual weight now that cycles are known
+let weight = get_transaction_weight(tx_size, verified.cycles);
+let min_fee_by_weight = tx_pool_config.min_fee_rate.fee(weight);
+if fee < min_fee_by_weight {
+    return Some((Err(Reject::LowFeeRate(tx_pool_config.min_fee_rate, min_fee_by_weight.as_u64(), fee.as_u64())), snapshot));
+}
+
+let entry = TxEntry::new(rtx, verified.cycles, fee, tx_size);
+```
+
+The size-only pre-check in `check_tx_fee` can remain as an early rejection for obviously under-fee transactions, but must not be the sole gate. The same fix should be applied in `readd_detached_tx`.
+
+## Proof of Concept
+
+1. Deploy a lock script binary (~100 bytes) that runs a tight loop consuming ~70,000,000 cycles. Store it in a cell dep.
+2. Create UTXOs locked by that script.
+3. Construct a transaction spending one such UTXO:
+   - `tx_size` ≈ 200 bytes (minimal inputs/outputs/witnesses)
+   - `cycles` ≈ 70,000,000 (from the loop script)
+   - `fee` = `min_fee_rate.fee(200)` = 200 shannons
+4. Submit via `send_transaction` RPC.
+5. Observe: `check_tx_fee` passes (`200 >= 200`); `verify_rtx` runs 70M cycles; `TxEntry` is created and submitted; transaction is relayed to peers.
+6. Verify: `entry.fee_rate()` = `FeeRate::calculate(200, get_transaction_weight(200, 70_000_000))` ≈ 16 shannons/KW — 62× below `min_fee_rate`.
+7. Repeat for each pre-funded UTXO to sustain CPU load across the network.
+
+### Citations
+
+**File:** util/types/src/core/tx_pool.rs (L298-303)
+```rust
+pub fn get_transaction_weight(tx_size: usize, cycles: u64) -> u64 {
+    std::cmp::max(
+        tx_size as u64,
+        (cycles as f64 * DEFAULT_BYTES_PER_CYCLES) as u64,
+    )
+}
+```
+
+**File:** tx-pool/src/component/entry.rs (L115-118)
+```rust
+    pub fn fee_rate(&self) -> FeeRate {
+        let weight = get_transaction_weight(self.size, self.cycles);
+        FeeRate::calculate(self.fee, weight)
+    }
+```
+
+**File:** tx-pool/src/util.rs (L42-52)
+```rust
+    // Theoretically we cannot use size as weight directly to calculate fee_rate,
+    // here min fee rate is used as a cheap check,
+    // so we will use size to calculate fee_rate directly
+    let min_fee = tx_pool.config.min_fee_rate.fee(tx_size as u64);
+    // reject txs which fee lower than min fee rate
+    if fee < min_fee {
+        let reject =
+            Reject::LowFeeRate(tx_pool.config.min_fee_rate, min_fee.as_u64(), fee.as_u64());
+        ckb_logger::debug!("Reject tx {}", reject);
+        return Err(reject);
+    }
+```
+
+**File:** tx-pool/src/process.rs (L715-753)
+```rust
+        let (ret, snapshot) = self.pre_check(&tx).await;
+
+        let (tip_hash, rtx, status, fee, tx_size) = try_or_return_with_snapshot!(ret, snapshot);
+
+        let verify_cache = self.fetch_tx_verify_cache(&tx).await;
+        let max_cycles = declared_cycles.unwrap_or_else(|| self.consensus.max_block_cycles());
+        let tip_header = snapshot.tip_header();
+        let tx_env = Arc::new(status.with_env(tip_header));
+
+        let verified_ret = verify_rtx(
+            Arc::clone(&snapshot),
+            Arc::clone(&rtx),
+            tx_env,
+            &verify_cache,
+            max_cycles,
+            command_rx,
+        )
+        .await;
+
+        let verified = try_or_return_with_snapshot!(verified_ret, snapshot);
+
+        if let Some(declared) = declared_cycles
+            && declared != verified.cycles
+        {
+            info!(
+                "process_tx declared cycles not match verified cycles, declared: {}, verified: {}, tx_hash: {}",
+                declared,
+                verified.cycles,
+                tx.hash()
+            );
+            return Some((
+                Err(Reject::DeclaredWrongCycles(declared, verified.cycles)),
+                snapshot,
+            ));
+        }
+
+        let entry = TxEntry::new(rtx, verified.cycles, fee, tx_size);
+
+        let (ret, submit_snapshot) = self.submit_entry(tip_hash, entry, status).await;
+```
+
+**File:** tx-pool/src/process.rs (L886-906)
+```rust
+            let tx_size = tx.data().serialized_size_in_block();
+            let tx_hash = tx.hash();
+            if let Ok((rtx, status)) = resolve_tx(tx_pool, tx_pool.snapshot(), tx, false)
+                && let Ok(fee) = check_tx_fee(tx_pool, tx_pool.snapshot(), &rtx, tx_size)
+            {
+                let verify_cache = fetched_cache.get(&tx_hash).cloned();
+                let snapshot = tx_pool.cloned_snapshot();
+                let tip_header = snapshot.tip_header();
+                let tx_env = Arc::new(status.with_env(tip_header));
+                if let Ok(verified) = verify_rtx(
+                    snapshot,
+                    Arc::clone(&rtx),
+                    tx_env,
+                    &verify_cache,
+                    max_cycles,
+                    None,
+                )
+                .await
+                {
+                    let entry = TxEntry::new(rtx, verified.cycles, fee, tx_size);
+                    if let Err(e) = _submit_entry(tx_pool, status, entry, &self.callbacks) {
+```

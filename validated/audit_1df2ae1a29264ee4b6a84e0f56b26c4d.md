@@ -1,0 +1,82 @@
+The bug is confirmed in the actual code. Line 522 reads:
+
+```rust
+self.timeout_count = self.task_count.saturating_add(num);
+```
+
+instead of `self.timeout_count.saturating_add(num)`. [1](#0-0) 
+
+The call sites in `remove_by_block` are also confirmed. [2](#0-1) 
+
+The impact, however, is bounded: the attacker only exhausts their own `task_count` slot faster than intended. The node continues syncing from other peers. This does not crash the node, cause consensus deviation, damage the economy, or cause network congestion. It fits at most **Low** (performance improvement).
+
+---
+
+Audit Report
+
+## Title
+`DownloadScheduler::decrease` Uses `task_count` Instead of `timeout_count` in Accumulator Assignment — (File: sync/src/types/mod.rs)
+
+## Summary
+In `DownloadScheduler::decrease`, the right-hand side of the accumulator assignment reads `self.task_count.saturating_add(num)` instead of `self.timeout_count.saturating_add(num)`. Because `task_count` starts at 32 and `num` is 1 or 2, the result is always `> 2`, so the guard branch fires on every single call rather than only after 3 accumulated timeouts. This causes a peer's download concurrency budget (`task_count`) to drain approximately 3× faster than the protocol intends, degrading sync throughput for that peer slot.
+
+## Finding Description
+`DownloadScheduler` is defined in `sync/src/types/mod.rs` (L482–532). The `decrease` method at L521–527 is intended to accumulate timeout events in `timeout_count` and only decrement `task_count` once `timeout_count` exceeds 2. The actual code assigns `self.task_count.saturating_add(num)` to `self.timeout_count`, so `timeout_count` is always overwritten with a value equal to `task_count + num`. Since `task_count` initializes to `INIT_BLOCKS_IN_TRANSIT_PER_PEER` (32) and decrements by 1 each call, the expression is always `≥ 2` until `task_count` reaches 1, meaning the `if self.timeout_count > 2` branch fires on every call. `decrease` is called from `remove_by_block` (L799–810) whenever a block arrives in the `NormalToUpper` (calls `decrease(1)`) or `UpperToMax` (calls `decrease(2)`) latency quantile and `should_punish` is true (L786: `self.download_schedulers.len() > self.protect_num`). An unprivileged sync peer that deliberately delays block responses can repeatedly trigger this path, draining its own `task_count` slot to 0 in ~32 slow blocks instead of ~96.
+
+## Impact Explanation
+When `task_count` reaches 0, `can_fetch()` (L504–506) returns 0, and the block fetcher skips that peer entirely. The node continues syncing from other peers, so this does not crash the node, cause consensus deviation, or damage the economy. The concrete impact is degraded sync throughput for the affected peer slot — approximately 3× faster capacity exhaustion than the protocol intends. This matches **Low (501–2000 points): Any other important performance improvements for CKB**.
+
+## Likelihood Explanation
+The conditions are met during normal IBD whenever the node has more connected peers than `protect_num` and any peer delivers blocks in the upper latency quantiles. A malicious peer reachable over the P2P network can deliberately delay responses to trigger this path with no special privileges. The effect is limited to that peer's own slot; other peers are unaffected.
+
+## Recommendation
+Fix the assignment in `DownloadScheduler::decrease` to accumulate into `self.timeout_count`:
+
+```rust
+fn decrease(&mut self, num: usize) {
+    self.timeout_count = self.timeout_count.saturating_add(num); // was self.task_count
+    if self.timeout_count > 2 {
+        self.task_count = self.task_count.saturating_sub(1);
+        self.timeout_count = 0;
+    }
+}
+```
+
+## Proof of Concept
+A unit test can confirm the behavior directly:
+
+1. Construct a `DownloadScheduler` with default state (`task_count = 32`, `timeout_count = 0`).
+2. Call `decrease(1)` once. With the bug, `timeout_count = 32 + 1 = 33 > 2` → `task_count` becomes 31, `timeout_count` resets to 0.
+3. Call `decrease(1)` again. `timeout_count = 31 + 1 = 32 > 2` → `task_count` becomes 30.
+4. After 31 such calls, `task_count = 1`; one more call yields `timeout_count = 1 + 1 = 2`, which is not `> 2`, so `task_count` stays at 1. After 32 calls total, `task_count` is effectively exhausted.
+5. With the fix applied, the first two calls accumulate `timeout_count` to 2 without decrementing `task_count`; only the third call triggers the decrement, confirming the 3× difference.
+
+### Citations
+
+**File:** sync/src/types/mod.rs (L521-527)
+```rust
+    fn decrease(&mut self, num: usize) {
+        self.timeout_count = self.task_count.saturating_add(num);
+        if self.timeout_count > 2 {
+            self.task_count = self.task_count.saturating_sub(1);
+            self.timeout_count = 0;
+        }
+    }
+```
+
+**File:** sync/src/types/mod.rs (L799-811)
+```rust
+                            TimeQuantile::MinToFast => set.increase(2),
+                            TimeQuantile::FastToNormal => set.increase(1),
+                            TimeQuantile::NormalToUpper => {
+                                if should_punish {
+                                    set.decrease(1)
+                                }
+                            }
+                            TimeQuantile::UpperToMax => {
+                                if should_punish {
+                                    set.decrease(2)
+                                }
+                            }
+                        }
+```

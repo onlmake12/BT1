@@ -1,0 +1,236 @@
+Audit Report
+
+## Title
+Tx-Pool Minimum Fee Rate Admission Check Uses Size-Only Weight, Allowing High-Cycle Transactions to Bypass the Fee Gate - (File: `tx-pool/src/util.rs`)
+
+## Summary
+
+`check_tx_fee` in `tx-pool/src/util.rs` enforces `min_fee_rate` using only the serialized transaction size as the weight denominator. The actual resource cost of a transaction is `weight = max(size, cycles × DEFAULT_BYTES_PER_CYCLES)`. Because cycles are unknown before script verification, the size-only check runs as a pre-filter in `pre_check`, and no second weight-based fee-rate check is performed after `verify_rtx` returns the actual cycle count. An unprivileged attacker can craft transactions that pass the size-based gate with minimal fees but carry near-maximum cycles, resulting in admitted pool entries whose true weight-based fee rate is an order of magnitude below `min_fee_rate`.
+
+## Finding Description
+
+In `tx-pool/src/util.rs` lines 42–52, `check_tx_fee` explicitly uses `tx_size` as the sole weight denominator, with a comment acknowledging this is intentional as a "cheap check":
+
+```rust
+// Theoretically we cannot use size as weight directly to calculate fee_rate,
+// here min fee rate is used as a cheap check,
+// so we will use size to calculate fee_rate directly
+let min_fee = tx_pool.config.min_fee_rate.fee(tx_size as u64);
+``` [1](#0-0) 
+
+This check is called inside `pre_check` at `tx-pool/src/process.rs` lines 289 and 294, before script verification: [2](#0-1) 
+
+After `pre_check` passes, `_process_tx` calls `verify_rtx` to obtain the actual cycle count (lines 724–734), then immediately constructs a `TxEntry` with the real cycles and calls `submit_entry` — with no intervening weight-based fee-rate check: [3](#0-2) 
+
+Once admitted, the entry's true fee rate is computed using the full weight via `get_transaction_weight`: [4](#0-3) 
+
+Where `get_transaction_weight` is: [5](#0-4) 
+
+With `DEFAULT_BYTES_PER_CYCLES = 0.000_170_571_4`: [6](#0-5) 
+
+**Concrete example with default config (`max_tx_verify_cycles = 70_000_000`, `min_fee_rate = 1_000`):** [7](#0-6) 
+
+- Transaction size: 1,000 bytes → passes size-based check with fee = 1,000 shannons
+- Script cycles: 70,000,000
+- True weight: `max(1000, 70_000_000 × 0.000_170_571_4)` = `max(1000, 11,940)` = **11,940**
+- Actual fee rate: `1000 × 1000 / 11940` ≈ **83 shannons/KB** — ~12× below the 1,000 shannons/KB minimum
+
+The `limit_size` eviction function only triggers when `total_tx_size > max_tx_pool_size` (serialized bytes, not weight). Small-but-high-cycle transactions do not fill the pool by serialized size quickly, so eviction is not triggered promptly. When eviction does occur, it uses the weight-based `EvictKey`, meaning attacker transactions are evicted first — but only after they have already occupied pool space and consumed verification resources: [8](#0-7) [9](#0-8) 
+
+## Impact Explanation
+
+This matches **High: Vulnerabilities or bad designs which could cause CKB network congestion with few costs.**
+
+An attacker can flood the tx-pool with transactions that:
+1. Pass the size-based fee gate with minimal fees
+2. Consume up to `max_tx_verify_cycles` (70M) cycles per transaction during script verification
+3. Carry a true weight-based fee rate ~12× below `min_fee_rate`
+4. Occupy pool space (up to `max_tx_pool_size = 180 MB`) and displace legitimate higher-fee-rate transactions
+
+The verification pipeline is the primary resource under attack: each malicious transaction forces the node to execute up to 70M RISC-V cycles before the entry is admitted. Filling the pool with 180,000 such transactions (1,000 bytes each) costs ~1.8 CKB in fees — a negligible sum. The resulting verification backlog delays legitimate transactions and degrades miner block assembly quality, constituting concrete network congestion at low attacker cost.
+
+## Likelihood Explanation
+
+Reachable by any unprivileged actor via:
+- The `send_transaction` JSON-RPC endpoint (no declared cycles required; `max_block_cycles` is used as the limit)
+- The P2P relay protocol (`submit_remote_tx` path), where a peer relays a transaction with a declared cycle count matching actual execution
+
+The attacker only needs to deploy a lock script that runs a tight RISC-V loop consuming ~70M cycles. This is straightforward on CKB given the programmable CKB-VM. The discrepancy between size-based and weight-based fee rates is maximized when cycles dominate, which is common for non-trivial smart contract transactions. The attack is repeatable and cheap.
+
+## Recommendation
+
+After `verify_rtx` returns the actual cycle count in `_process_tx`, add a second fee-rate check using the true weight before constructing the `TxEntry`:
+
+```rust
+let actual_weight = get_transaction_weight(tx_size, verified.cycles);
+let min_fee_by_weight = tx_pool.config.min_fee_rate.fee(actual_weight);
+if fee < min_fee_by_weight {
+    return Some((Err(Reject::LowFeeRate(tx_pool.config.min_fee_rate, min_fee_by_weight.as_u64(), fee.as_u64())), snapshot));
+}
+```
+
+This mirrors the approach already used for pool ordering (`AncestorsScoreSortKey`) and eviction (`EvictKey`), and closes the gap between the admission gate and the actual resource cost. The existing size-only check in `check_tx_fee` can remain as a fast pre-filter before script execution.
+
+## Proof of Concept
+
+1. Deploy a CKB lock script that runs a tight RISC-V loop consuming ~70,000,000 cycles.
+2. Craft a transaction with:
+   - One input cell locked by the above script
+   - One output cell
+   - Serialized size ≈ 1,000 bytes
+   - Fee = 1,000 shannons (exactly `min_fee_rate × size / 1000`)
+3. Submit via `send_transaction` RPC.
+4. Observe: `check_tx_fee` passes (fee ≥ `min_fee_rate.fee(1000)` = 1,000 shannons).
+5. After script verification, `verified.cycles` ≈ 70,000,000. True weight ≈ 11,940. Actual fee rate ≈ 83 shannons/KB.
+6. The `TxEntry` is admitted with `fee_rate()` ≈ 83 shannons/KB, far below the 1,000 shannons/KB minimum.
+7. Repeat ~180,000 times (total cost ~1.8 CKB) to fill the pool by serialized size, exhausting the verification pipeline and occupying pool space with economically unviable entries.
+
+### Citations
+
+**File:** tx-pool/src/util.rs (L42-52)
+```rust
+    // Theoretically we cannot use size as weight directly to calculate fee_rate,
+    // here min fee rate is used as a cheap check,
+    // so we will use size to calculate fee_rate directly
+    let min_fee = tx_pool.config.min_fee_rate.fee(tx_size as u64);
+    // reject txs which fee lower than min fee rate
+    if fee < min_fee {
+        let reject =
+            Reject::LowFeeRate(tx_pool.config.min_fee_rate, min_fee.as_u64(), fee.as_u64());
+        ckb_logger::debug!("Reject tx {}", reject);
+        return Err(reject);
+    }
+```
+
+**File:** tx-pool/src/process.rs (L288-295)
+```rust
+                    Ok((rtx, status)) => {
+                        let fee = check_tx_fee(tx_pool, &snapshot, &rtx, tx_size)?;
+                        Ok((tip_hash, rtx, status, fee, tx_size))
+                    }
+                    Err(Reject::Resolve(OutPointError::Dead(out))) => {
+                        let (rtx, status) = resolve_tx(tx_pool, &snapshot, tx.clone(), true)?;
+                        let fee = check_tx_fee(tx_pool, &snapshot, &rtx, tx_size)?;
+                        let conflicts = tx_pool.pool_map.find_conflict_outpoint(tx);
+```
+
+**File:** tx-pool/src/process.rs (L734-754)
+```rust
+        let verified = try_or_return_with_snapshot!(verified_ret, snapshot);
+
+        if let Some(declared) = declared_cycles
+            && declared != verified.cycles
+        {
+            info!(
+                "process_tx declared cycles not match verified cycles, declared: {}, verified: {}, tx_hash: {}",
+                declared,
+                verified.cycles,
+                tx.hash()
+            );
+            return Some((
+                Err(Reject::DeclaredWrongCycles(declared, verified.cycles)),
+                snapshot,
+            ));
+        }
+
+        let entry = TxEntry::new(rtx, verified.cycles, fee, tx_size);
+
+        let (ret, submit_snapshot) = self.submit_entry(tip_hash, entry, status).await;
+        try_or_return_with_snapshot!(ret, submit_snapshot);
+```
+
+**File:** tx-pool/src/component/entry.rs (L114-118)
+```rust
+    /// Returns fee rate
+    pub fn fee_rate(&self) -> FeeRate {
+        let weight = get_transaction_weight(self.size, self.cycles);
+        FeeRate::calculate(self.fee, weight)
+    }
+```
+
+**File:** tx-pool/src/component/entry.rs (L234-247)
+```rust
+impl From<&TxEntry> for EvictKey {
+    fn from(entry: &TxEntry) -> Self {
+        let weight = get_transaction_weight(entry.size, entry.cycles);
+        let descendants_weight =
+            get_transaction_weight(entry.descendants_size, entry.descendants_cycles);
+
+        let descendants_feerate = FeeRate::calculate(entry.descendants_fee, descendants_weight);
+        let feerate = FeeRate::calculate(entry.fee, weight);
+        EvictKey {
+            fee_rate: descendants_feerate.max(feerate),
+            timestamp: entry.timestamp,
+            descendants_count: entry.descendants_count,
+        }
+    }
+```
+
+**File:** util/types/src/core/tx_pool.rs (L276-279)
+```rust
+/// Equal to MAX_BLOCK_BYTES / MAX_BLOCK_CYCLES, see ckb-chain-spec.
+/// The precision is set so that the difference between MAX_BLOCK_CYCLES * DEFAULT_BYTES_PER_CYCLES
+/// and MAX_BLOCK_BYTES is less than 1.
+pub const DEFAULT_BYTES_PER_CYCLES: f64 = 0.000_170_571_4_f64;
+```
+
+**File:** util/types/src/core/tx_pool.rs (L298-303)
+```rust
+pub fn get_transaction_weight(tx_size: usize, cycles: u64) -> u64 {
+    std::cmp::max(
+        tx_size as u64,
+        (cycles as f64 * DEFAULT_BYTES_PER_CYCLES) as u64,
+    )
+}
+```
+
+**File:** resource/ckb.toml (L211-215)
+```text
+max_tx_pool_size = 180_000_000 # 180mb
+min_fee_rate = 1_000 # Here fee_rate are calculated directly using size in units of shannons/KB
+# min_rbf_rate > min_fee_rate means RBF is enabled
+min_rbf_rate = 1_500 # Here fee_rate are calculated directly using size in units of shannons/KB
+max_tx_verify_cycles = 70_000_000
+```
+
+**File:** tx-pool/src/pool.rs (L292-329)
+```rust
+    pub(crate) fn limit_size(
+        &mut self,
+        callbacks: &Callbacks,
+        current_entry_id: Option<&ProposalShortId>,
+    ) -> Option<Reject> {
+        let mut ret = None;
+        while self.pool_map.total_tx_size > self.config.max_tx_pool_size {
+            let next_evict_entry = || {
+                self.pool_map
+                    .next_evict_entry(Status::Pending)
+                    .or_else(|| self.pool_map.next_evict_entry(Status::Gap))
+                    .or_else(|| self.pool_map.next_evict_entry(Status::Proposed))
+            };
+
+            if let Some(id) = next_evict_entry() {
+                let removed = self.pool_map.remove_entry_and_descendants(&id);
+                for entry in removed {
+                    let tx_hash = entry.transaction().hash();
+                    debug!(
+                        "Removed by size limit {} timestamp({})",
+                        tx_hash, entry.timestamp
+                    );
+                    let reject = Reject::Full(format!(
+                        "the fee_rate for this transaction is: {}",
+                        entry.fee_rate()
+                    ));
+                    if let Some(short_id) = current_entry_id
+                        && entry.proposal_short_id() == *short_id
+                    {
+                        ret = Some(reject.clone());
+                    }
+                    callbacks.call_reject(self, &entry, reject);
+                }
+            }
+        }
+        self.pool_map.entries.shrink_to_fit();
+        ret
+    }
+```
