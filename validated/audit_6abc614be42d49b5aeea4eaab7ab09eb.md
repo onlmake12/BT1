@@ -1,0 +1,102 @@
+The code at lines 613-624 of `tx-pool/src/pool.rs` confirms the exact behavior described. The loop accumulates `replace_count` per-conflict without deduplication, `MAX_REPLACEMENT_CANDIDATES` is confirmed at 100, and `calculate_min_replace_fee` already deduplicates via `HashMap` — confirming the inconsistency. The diamond-shaped dependency graph is valid in CKB's UTXO model since a transaction can spend outputs from multiple parents, making it a descendant of all of them.
+
+---
+
+Audit Report
+
+## Title
+RBF `replace_count` Overcounts Shared Descendants Across Multiple Conflicts, Causing False Rejection of Valid Replacements - (File: `tx-pool/src/pool.rs`)
+
+## Summary
+In `check_rbf`, `replace_count` is accumulated per-conflict by adding `descendants.len() + 1` for each conflict without deduplicating shared descendants across conflicts. When two or more conflicting transactions share common descendants (a valid UTXO diamond graph), those descendants are counted multiple times, inflating `replace_count` beyond the actual unique eviction set. A legitimate RBF replacement whose true unique eviction set is ≤ 100 is incorrectly rejected with `"Tx conflict with too many txs"`.
+
+## Finding Description
+In `tx-pool/src/pool.rs` at lines 613–624, `check_rbf` iterates over each direct conflict and accumulates `replace_count`:
+
+```rust
+let mut replace_count: usize = 0;
+let mut all_conflicted = conflicts.clone();
+let ancestors = self.pool_map.calc_ancestors(&short_id);
+for conflict in conflicts.iter() {
+    let descendants = self.pool_map.calc_descendants(&conflict.id);
+    replace_count += descendants.len() + 1;   // ← no dedup across conflicts
+    if replace_count > MAX_REPLACEMENT_CANDIDATES {
+        return Err(Reject::RBFRejected(...));
+    }
+    ...
+}
+```
+
+`calc_descendants` returns a `HashSet<ProposalShortId>` (no intra-conflict duplicates), but the same descendant ID can appear in the `HashSet` for conflict A **and** conflict B when a downstream transaction spends outputs from both A and B. Each such shared descendant is counted once per conflict that owns it.
+
+In CKB's UTXO model, a transaction Di can legitimately spend outputs from both tx-A and tx-B, making Di a descendant of both. This is a standard multi-input transaction pattern. With 2 conflicts sharing 50 descendants:
+- For conflict A: `replace_count += 51` → total = 51
+- For conflict B: `replace_count += 51` → total = 102 → **rejected**
+- Actual unique evictions: {A, B, D1…D50} = 52, well within the 100 limit
+
+`calculate_min_replace_fee` at lines 104–108 already handles this correctly by deduplicating via a `HashMap` keyed on `id`, but `replace_count` lacks the equivalent step.
+
+## Impact Explanation
+This is a concrete, reproducible false rejection of valid RBF replacements. When RBF is blocked, stuck or low-fee transactions cannot be replaced, and an attacker can deliberately construct diamond-shaped graphs to prevent targeted users from ever replacing their transactions. This constitutes a **bad design that could cause CKB network congestion with few costs** (High, 10001–15000 points): an attacker with no special privileges can cheaply construct the prerequisite graph and permanently block RBF for specific input sets, preventing fee-bump replacements from clearing the mempool.
+
+## Likelihood Explanation
+Any unprivileged user who can submit transactions to the pool can trigger this. Diamond-shaped dependency graphs arise naturally from multi-input transactions. An attacker needs only to submit tx-A, tx-B, and a set of descendants spending outputs of both before the victim attempts an RBF replacement. No key material, hashpower, or privileged access is required. The attack is cheap, repeatable, and deterministic.
+
+## Recommendation
+Collect all descendants across all conflicts into a single `HashSet` before counting, mirroring the deduplication already applied in `calculate_min_replace_fee`:
+
+```rust
+let mut all_to_replace: HashSet<ProposalShortId> = HashSet::new();
+for conflict in conflicts.iter() {
+    all_to_replace.insert(conflict.id.clone());
+    let descendants = self.pool_map.calc_descendants(&conflict.id);
+    all_to_replace.extend(descendants);
+}
+let replace_count = all_to_replace.len();
+if replace_count > MAX_REPLACEMENT_CANDIDATES {
+    return Err(Reject::RBFRejected(format!(
+        "Tx conflict with too many txs, conflict txs count: {}, expect <= {}",
+        replace_count, MAX_REPLACEMENT_CANDIDATES,
+    )));
+}
+```
+
+## Proof of Concept
+1. Enable RBF (`min_rbf_rate > min_fee_rate`).
+2. Submit tx-A spending `outpoint_X`; submit tx-B spending `outpoint_Y`.
+3. Submit 50 transactions D1…D50 where each Di spends an output of both A and B (making each a descendant of both).
+4. Submit new-tx spending both `outpoint_X` and `outpoint_Y` with fee ≥ `min_replace_fee`.
+5. Observe `check_rbf` returns `RBFRejected("Tx conflict with too many txs, conflict txs count: 102, expect <= 100")` even though only 52 unique transactions would be evicted.
+6. Confirm the fix: after deduplicating into a single `HashSet`, `replace_count` = 52 and the replacement is accepted. [1](#0-0) [2](#0-1) [3](#0-2)
+
+### Citations
+
+**File:** tx-pool/src/pool.rs (L33-33)
+```rust
+const MAX_REPLACEMENT_CANDIDATES: usize = 100;
+```
+
+**File:** tx-pool/src/pool.rs (L104-108)
+```rust
+        // don't account for duplicate txs
+        let replaced_fees: HashMap<_, _> = conflicts
+            .iter()
+            .map(|c| (c.id.clone(), c.inner.fee))
+            .collect();
+```
+
+**File:** tx-pool/src/pool.rs (L613-624)
+```rust
+        let mut replace_count: usize = 0;
+        let mut all_conflicted = conflicts.clone();
+        let ancestors = self.pool_map.calc_ancestors(&short_id);
+        for conflict in conflicts.iter() {
+            let descendants = self.pool_map.calc_descendants(&conflict.id);
+            replace_count += descendants.len() + 1;
+            if replace_count > MAX_REPLACEMENT_CANDIDATES {
+                return Err(Reject::RBFRejected(format!(
+                    "Tx conflict with too many txs, conflict txs count: {}, expect <= {}",
+                    replace_count, MAX_REPLACEMENT_CANDIDATES,
+                )));
+            }
+```

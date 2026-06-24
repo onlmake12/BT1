@@ -1,0 +1,148 @@
+Audit Report
+
+## Title
+`max_tx_verify_cycles` Not Enforced as Rejection Limit in Relay Path — (File: `sync/src/relayer/transactions_process.rs`, `tx-pool/src/process.rs`)
+
+## Summary
+
+`TxPoolConfig::max_tx_verify_cycles` is documented as a per-transaction cycle cap to reduce DoS vulnerability, but the relay transaction path enforces only `max_block_cycles` (≈3.5B) as the upper bound. Any connected peer can relay transactions with declared cycles up to `max_block_cycles - 1`, causing the node to run CKB-VM for the full declared duration — up to 50× beyond the operator's intended cap — regardless of the `max_tx_verify_cycles` setting.
+
+## Finding Description
+
+**Root cause — `max_tx_verify_cycles` is a scheduling label, not a rejection gate:**
+
+In `VerifyQueue::add_tx`, the `large_cycle_threshold` (set from `max_tx_verify_cycles`) is used only to classify transactions for scheduling priority, not to reject them: [1](#0-0) 
+
+No rejection occurs when `declared_cycles > large_cycle_threshold`.
+
+**Relay path enforces only `max_block_cycles`:**
+
+`TransactionsProcess::execute()` bans peers only when `declared_cycles > max_block_cycles`. There is no check against `max_tx_verify_cycles`: [2](#0-1) 
+
+**`_process_tx` uses peer-declared value as the VM cycle ceiling:**
+
+When `declared_cycles` is `Some(peer_value)` (always the case for relay), `max_cycles` is set directly to the peer-declared value: [3](#0-2) 
+
+The config's `max_tx_verify_cycles` is never consulted here for relay transactions.
+
+**`DeclaredWrongCycles` forces genuine cycle consumption:**
+
+After verification, if `declared != verified.cycles`, the transaction is rejected: [4](#0-3) 
+
+This means the attacker must craft a script that genuinely consumes the declared cycles — but a tight RISC-V loop trivially achieves this.
+
+**Exploit flow:**
+1. Attacker announces a transaction hash to the target node via the relay protocol.
+2. Node adds it to `unknown_tx_hashes` and requests it from the peer.
+3. Attacker sends `RelayTransactions` with `declared_cycles = max_block_cycles - 1` (≈3.499B).
+4. `TransactionsProcess::execute()` passes the `max_block_cycles` check.
+5. `_process_tx` sets `max_cycles = 3_499_999_999` and runs CKB-VM for the full duration.
+6. Node spends ~50× more CPU than `max_tx_verify_cycles` (default ≈70M) intended.
+7. Repeat at the relay rate limit (30 tx/s) to sustain continuous CPU saturation.
+
+## Impact Explanation
+
+A remote, unprivileged peer can sustain continuous high-CPU load on any CKB node by relaying high-cycle transactions. The per-transaction cycle cap — the primary DoS mitigation for the tx-pool — is rendered ineffective for the relay path. At 30 relayed transactions per second, each consuming ~3.5B cycles, the node's verification workers are saturated, degrading its ability to process legitimate transactions and potentially causing it to fall behind in block/tx processing. This matches the allowed impact: **"Vulnerabilities or bad designs which could cause CKB network congestion with few costs" (High, 10001–15000 points)**. The attacker needs no key material, no hashpower, and no special privileges — only a P2P connection.
+
+## Likelihood Explanation
+
+Any peer connected to the CKB P2P network can execute this attack. The standard relay announcement/request flow (`RelayTransactionHashes` → `GetRelayTransactions` → `RelayTransactions`) is the normal protocol path and requires no special access. Crafting a RISC-V loop that consumes a precise number of cycles is straightforward. The 30 tx/s rate limiter and 256 MB verify queue cap provide partial mitigation but do not prevent the bypass of `max_tx_verify_cycles`. Multiple attackers from different peers multiply the effect linearly.
+
+## Recommendation
+
+Enforce `max_tx_verify_cycles` as a hard rejection limit in `TransactionsProcess::execute()`, immediately after the existing `max_block_cycles` check:
+
+```rust
+// existing check
+if txs.iter().any(|(_, declared_cycles)| declared_cycles > &max_block_cycles) {
+    self.nc.ban_peer(self.peer, DEFAULT_BAN_TIME,
+        String::from("relay declared cycles greater than max_block_cycles"));
+    return Status::ok();
+}
+
+// add: enforce per-tx operator limit (no ban — this is local config, not consensus)
+let max_tx_verify_cycles = self.relayer.shared().tx_pool_config().max_tx_verify_cycles;
+if txs.iter().any(|(_, declared_cycles)| declared_cycles > &max_tx_verify_cycles) {
+    return Status::ok();
+}
+```
+
+This mirrors the existing `max_block_cycles` guard and ensures the operator-configured cap is respected before any VM execution occurs.
+
+## Proof of Concept
+
+1. Configure a CKB node with `max_tx_verify_cycles = 70_000_000` (the default, `TWO_IN_TWO_OUT_CYCLES * 20`). [5](#0-4) 
+
+2. Craft a CKB transaction whose lock script contains a RISC-V loop consuming exactly `N` cycles (e.g., `N = 3_499_999_999`).
+3. Connect to the target node as a peer via the P2P relay protocol.
+4. Send `RelayTransactionHashes` to announce the transaction hash; wait for the node to send `GetRelayTransactions`.
+5. Respond with `RelayTransactions` containing `declared_cycles = N`.
+6. Observe: `TransactionsProcess::execute()` passes (`N < max_block_cycles`); `_process_tx` runs CKB-VM for `N` cycles.
+7. Measure CPU time per transaction; confirm it is ~50× the time expected under `max_tx_verify_cycles = 70_000_000`.
+8. Repeat at 30 tx/s (rate limit) with distinct transaction hashes to sustain saturation.
+
+### Citations
+
+**File:** tx-pool/src/component/verify_queue.rs (L212-214)
+```rust
+        let is_large_cycle = remote
+            .map(|(cycles, _)| cycles > self.large_cycle_threshold)
+            .unwrap_or(false);
+```
+
+**File:** sync/src/relayer/transactions_process.rs (L63-74)
+```rust
+        let max_block_cycles = self.relayer.shared().consensus().max_block_cycles();
+        if txs
+            .iter()
+            .any(|(_, declared_cycles)| declared_cycles > &max_block_cycles)
+        {
+            self.nc.ban_peer(
+                self.peer,
+                DEFAULT_BAN_TIME,
+                String::from("relay declared cycles greater than max_block_cycles"),
+            );
+            return Status::ok();
+        }
+```
+
+**File:** tx-pool/src/process.rs (L719-732)
+```rust
+        let verify_cache = self.fetch_tx_verify_cache(&tx).await;
+        let max_cycles = declared_cycles.unwrap_or_else(|| self.consensus.max_block_cycles());
+        let tip_header = snapshot.tip_header();
+        let tx_env = Arc::new(status.with_env(tip_header));
+
+        let verified_ret = verify_rtx(
+            Arc::clone(&snapshot),
+            Arc::clone(&rtx),
+            tx_env,
+            &verify_cache,
+            max_cycles,
+            command_rx,
+        )
+        .await;
+```
+
+**File:** tx-pool/src/process.rs (L736-748)
+```rust
+        if let Some(declared) = declared_cycles
+            && declared != verified.cycles
+        {
+            info!(
+                "process_tx declared cycles not match verified cycles, declared: {}, verified: {}, tx_hash: {}",
+                declared,
+                verified.cycles,
+                tx.hash()
+            );
+            return Some((
+                Err(Reject::DeclaredWrongCycles(declared, verified.cycles)),
+                snapshot,
+            ));
+```
+
+**File:** util/app-config/src/legacy/tx_pool.rs (L13-14)
+```rust
+// default max tx verify cycles
+const DEFAULT_MAX_TX_VERIFY_CYCLES: Cycle = TWO_IN_TWO_OUT_CYCLES * 20;
+```
