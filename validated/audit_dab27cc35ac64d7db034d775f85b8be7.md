@@ -1,0 +1,75 @@
+All code claims verified against the actual repository. Producing the validated output:
+
+---
+
+Audit Report
+
+## Title
+Unbounded `Nodes{announce:true}` Flooding Enables Peer Store Poisoning — (`network/src/protocols/discovery/mod.rs`)
+
+## Summary
+The discovery protocol imposes no per-session rate limit on inbound `Nodes{announce:true}` messages. An attacker can send an unlimited stream of such messages, each carrying up to 10 addresses from distinct /16 subnets, filling the 16,384-entry peer store with attacker-controlled addresses. Because freshly inserted fake addresses are considered connectable and the group-based eviction pass only removes entries from groups with >4 members, spreading one address per /16 group defeats both eviction passes, causing `EvictionFailed` which is silently ignored. After a victim node restarts, its peer store contains only attacker addresses, enabling an eclipse attack.
+
+## Finding Description
+
+**Root cause — no per-session announce counter (`mod.rs` lines 170–208):**
+
+The `received` handler for `DiscoveryMessage::Nodes` calls `verify_nodes_message`, which rejects a single message only if it carries >10 items (`ANNOUNCE_THRESHOLD = 10`, line 30) for `announce=true`. There is no counter, token bucket, or sliding-window limit tracking how many `announce=true` messages a session has sent. The `received_nodes` flag is set only for `announce=false` messages (lines 202–203), so the duplicate-first-nodes guard never fires for announce traffic. Every message that passes `verify_nodes_message` unconditionally calls `self.addr_mgr.add_new_addrs(session.id, addrs)` (line 205).
+
+**Fake addresses survive eviction (`types.rs` lines 63–105, `peer_store_impl.rs` lines 71–79, 327–404):**
+
+`add_addr` calls `AddrInfo::new(addr, 0, score, flags.bits())` (line 78), giving `last_connected_at_ms = 0`, `last_tried_at_ms = 0`, `attempts_count = 0`. `is_connectable` returns `true` for such entries because:
+- `tried_in_last_minute`: `0 >= now_ms - 60000` → false
+- `last_connected_at_ms == 0 && attempts_count >= ADDR_MAX_RETRIES(3)`: `0 >= 3` → false
+- `now_ms - 0 > ADDR_TIMEOUT_MS && attempts_count >= ADDR_MAX_FAILURES(10)`: `0 >= 10` → false
+
+The first eviction pass in `check_purge` (lines 341–355) removes only non-connectable peers, leaving all fake addresses intact. The second pass (lines 358–402) groups addresses by /16 network segment and evicts 2 from any group with >4 entries. An attacker using one address per /16 group produces groups of size 1, which are never evicted. `check_purge` returns `EvictionFailed` (line 400).
+
+**Silent failure (`mod.rs` lines 347–363):**
+
+`add_new_addrs` catches the `EvictionFailed` error with a `debug!` log and continues the loop. The caller never learns the store is full and no address was actually inserted. Legitimate addresses presented after the store is saturated are silently dropped.
+
+**Existing guards are insufficient:**
+- `verify_nodes_message` is a per-message check only; it has no memory of prior messages from the same session.
+- `ANNOUNCE_THRESHOLD = 10` is the per-message item cap, not a per-session message cap.
+- `received_nodes` / `DuplicateFirstNodes` only applies to `announce=false`.
+- `misbehave` always returns `Disconnect` (line 372) but is never called for announce flooding because no single message exceeds the per-message threshold.
+
+## Impact Explanation
+After the peer store is filled with 16,384 attacker-controlled addresses, the victim node cannot store any legitimate peer addresses. On restart, the node attempts to connect only to attacker-controlled endpoints. If the attacker also controls or blocks the seed nodes, the victim is fully eclipsed and cannot participate in block propagation or transaction relay, enabling consensus deviation for that node. A single malicious seed node can simultaneously poison the peer stores of every node that connects to it outbound. This matches the **High** impact class: "Vulnerabilities or bad designs which could cause CKB network congestion with few costs," and potentially **Critical** if the eclipsed node is a miner, enabling double-spend or chain-split scenarios.
+
+## Likelihood Explanation
+The attack requires only a single TCP connection (inbound or outbound) to the attacker. No proof-of-work, key material, or privileged role is needed. The attacker sends ~547 messages of 10 items each, all within the per-message limit, so no misbehavior is ever triggered. The entire peer store can be saturated in seconds over a normal connection. Seed nodes are the highest-value targets because they receive outbound connections from many nodes simultaneously.
+
+## Recommendation
+1. **Add a per-session announce-message counter in `SessionState`.** Disconnect and score as misbehaving any session that sends more than a small threshold (e.g., 10–20) of `announce=true` Nodes messages within a sliding window (e.g., 60 seconds). The existing `ANNOUNCE_CHECK_INTERVAL` and `ANNOUNCE_THRESHOLD` constants can anchor this limit.
+2. **Treat `EvictionFailed` as a hard stop in `add_new_addrs`**: break out of the insertion loop immediately rather than continuing to attempt inserts that will also fail.
+3. **Apply per-source insertion limits**: track how many addresses each session has contributed to the peer store and cap it (e.g., at 100 addresses per session lifetime), preventing a single peer from dominating the store regardless of message count.
+4. **Enforce source-IP diversity at insertion time**: reject or deprioritize addresses from /16 groups already well-represented in the store, independent of the eviction path.
+
+## Proof of Concept
+```
+1. Attacker starts a CKB-compatible node and accepts or initiates a TCP connection to the victim.
+2. SessionState::new() sends GetNodes for outbound sessions; attacker ignores it.
+3. Attacker sends in a tight loop (~547 iterations):
+       Nodes {
+           announce: true,
+           items: [
+               Node { addr: X.Y.0.1:8115 },  // X.Y varies per batch (distinct /16)
+               … × 10 items
+           ]
+       }
+   Each message carries ≤10 items (within ANNOUNCE_THRESHOLD) and ≤3 addresses per item.
+   Each address belongs to a unique /16 subnet to defeat group-based eviction.
+4. After ceil(16384 / 30) ≈ 547 messages, peer store reaches ADDR_COUNT_LIMIT.
+   check_purge finds no non-connectable peers (all fake addrs have attempts_count=0)
+   and no group with >4 entries (one addr per /16), returns EvictionFailed.
+   add_new_addrs logs at debug level and continues; no disconnect is triggered.
+5. Victim restarts. Its persisted peer store contains only attacker addresses.
+   fetch_addrs_to_feeler returns attacker addresses; all connection attempts fail.
+   Without reachable seed nodes, the victim is eclipsed.
+
+Invariant test: assert that after N > ANNOUNCE_THRESHOLD announce messages from
+a single session, the session is disconnected and the peer store contains fewer
+than N * ANNOUNCE_THRESHOLD legitimate-looking entries from that session.
+```

@@ -1,0 +1,227 @@
+The code in the repository confirms all the claims. Let me verify the key points:
+
+Audit Report
+
+## Title
+Unauthenticated `from` Field in `ConnectionRequest` Enables `pending_delivered` Poisoning via Identity Spoofing — (File: `network/src/protocols/hole_punching/component/connection_request.rs`)
+
+## Summary
+
+`ConnectionRequestProcess::execute` accepts `content.from` directly from the wire message and writes it as the key into `pending_delivered` without ever verifying it matches the actual `PeerId` of the sending session. Any peer with a single authenticated P2P connection can set `content.from` to an arbitrary victim `PeerId` and store attacker-controlled listen addresses under that key. When a subsequent `ConnectionSync` arrives for that victim, the target node initiates NAT traversal to the attacker's endpoints instead of the victim's real addresses.
+
+## Finding Description
+
+In `TryFrom<&packed::ConnectionRequestReader<'_>>` for `RequestContent`, `from` is decoded from raw message bytes with no cross-check against the session:
+
+```rust
+// connection_request.rs L36-38
+let from = PeerId::from_bytes(value.from().raw_data().to_vec()).map_err(|_| {
+    StatusCode::InvalidFromPeerId.with_context("the from peer id is invalid")
+})?;
+``` [1](#0-0) 
+
+The process struct holds only a `PeerIndex` (session ID), not the session's `PeerId`:
+
+```rust
+// connection_request.rs L85-91
+pub(crate) struct ConnectionRequestProcess<'a> {
+    peer: PeerIndex,   // session ID only
+    ...
+}
+``` [2](#0-1) 
+
+In `execute`, after structural checks, when `self_peer_id == &content.to`, `respond_delivered` is called with the attacker-controlled `content.from` and `content.listen_addrs`:
+
+```rust
+// connection_request.rs L145-147
+if self_peer_id == &content.to {
+    self.respond_delivered(content.from, &content.to, content.listen_addrs).await
+``` [3](#0-2) 
+
+Inside `respond_delivered`, the attacker-controlled `from_peer_id` and `remote_listens` are written unconditionally into `pending_delivered`:
+
+```rust
+// connection_request.rs L234-237
+let now = unix_time_as_millis();
+self.protocol
+    .pending_delivered
+    .insert(from_peer_id, (remote_listens, now));
+``` [4](#0-3) 
+
+At no point is the session's actual `PeerId` looked up from the peer registry and compared against `content.from`. The `peer` field is used only to route the `ConnectionRequestDelivered` reply back to the sender session via `send_message_to(self.peer, ...)`. [5](#0-4) 
+
+`pending_delivered` is consumed by `ConnectionSyncProcess::execute`. When a `ConnectionSync` arrives with `from=victim_peer_id`, the target looks up `pending_delivered.get(&content.from)` and initiates NAT traversal to whatever addresses are stored:
+
+```rust
+// connection_sync.rs L111-115
+let listens_info = self
+    .protocol
+    .pending_delivered
+    .get(&content.from)
+    .map(|info| info.0.clone());
+``` [6](#0-5) 
+
+It then calls `control.raw_session(stream, addr, ...)` to the poisoned addresses: [7](#0-6) 
+
+**Existing guards are insufficient:**
+
+- The `HOLE_PUNCHING_INTERVAL` (2-minute cooldown) is keyed by `from_peer_id` — rotating through different victim `PeerId` values bypasses it entirely. [8](#0-7) 
+
+- The `forward_rate_limiter` is keyed by `(from, to, item_id)` — varying any of the three fields bypasses it. [9](#0-8) 
+
+- The per-session `rate_limiter` keyed by `(session_id, msg.item_id)` only caps the raw message rate per session, not the number of distinct victim `PeerId` entries that can be poisoned. [10](#0-9) 
+
+## Impact Explanation
+
+The concrete impact is **address poisoning in `pending_delivered`** combined with forced NAT traversal to attacker-controlled endpoints. An attacker can systematically poison entries for all well-known honest peers, causing the target to exhaust its hole-punching connection budget on attacker-controlled endpoints. This constitutes a targeted disruption of the hole-punching path with minimal cost (one P2P connection, many spoofed `from` values). If the attacker successfully fills the target's connection slots via repeated `raw_session` completions, this escalates toward an eclipse attack enabling consensus deviation. This matches the allowed impact: **High (10001–15000 points) — Vulnerabilities or bad designs which could cause CKB network congestion with few costs**.
+
+## Likelihood Explanation
+
+The attacker requires only a single authenticated P2P connection to the target (or any relay node with a path to the target). No special privileges, no leaked keys, no majority hashpower. The `ConnectionRequest` message is a standard production P2P message. The spoofed `from` field passes all existing validation because the only structural check on `from` is that it decodes as a valid `PeerId`. The attack is repeatable: the attacker rotates through arbitrary victim `PeerId` values to bypass the per-`from_peer_id` cooldown, and can also send the triggering `ConnectionSync` messages itself.
+
+## Recommendation
+
+In `ConnectionRequestProcess::execute` (or in `received` before dispatch), look up the session's actual `PeerId` from the peer registry using `self.peer` (the `PeerIndex`) and assert it equals `content.from`. Reject (and optionally ban) the session if they differ. The peer registry already supports this via `get_key_by_peer_id` / `get_peer(session_id)` lookups. For forwarded messages (where `from` is a remote originator, not the immediate sender), enforce the `from == session PeerId` invariant only for the **first hop** (i.e., when `route` is empty), since relay nodes legitimately forward messages on behalf of the original sender.
+
+## Proof of Concept
+
+```
+1. Attacker node (PeerId=A) establishes a P2P connection to target node T.
+
+2. Attacker sends a ConnectionRequest message:
+     from          = victim_peer_id (B, any known PeerId)
+     to            = T's own PeerId
+     listen_addrs  = [attacker_ip:attacker_port/p2p/B]
+     max_hops      = 1
+     route         = []
+
+3. T's ConnectionRequestProcess::execute sees self_peer_id == content.to,
+   calls respond_delivered(B, T, [attacker_addr]).
+
+4. respond_delivered inserts: pending_delivered[B] = ([attacker_addr], now).
+
+5. Attacker sends ConnectionSync{from=B, to=T} (route=[]).
+   ConnectionSyncProcess::execute looks up pending_delivered[B],
+   gets [attacker_addr], calls try_nat_traversal(bind_addr, attacker_addr).
+
+6. Attacker's node accepts the raw TCP connection and completes the P2P
+   handshake. T has now consumed a connection slot on an attacker-controlled
+   endpoint.
+
+7. Repeat step 2–6 with different victim PeerId values (B1, B2, …) to
+   bypass the HOLE_PUNCHING_INTERVAL cooldown and exhaust T's connection
+   budget.
+
+Verification: after step 4, assert pending_delivered[B] == [attacker_addr]
+in a unit test by constructing a mock ConnectionRequest with a mismatched
+from field and confirming the map entry is written without error.
+```
+
+### Citations
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L36-38)
+```rust
+        let from = PeerId::from_bytes(value.from().raw_data().to_vec()).map_err(|_| {
+            StatusCode::InvalidFromPeerId.with_context("the from peer id is invalid")
+        })?;
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L85-91)
+```rust
+pub(crate) struct ConnectionRequestProcess<'a> {
+    message: packed::ConnectionRequestReader<'a>,
+    protocol: &'a mut HolePunching,
+    peer: PeerIndex,
+    p2p_control: &'a ServiceAsyncControl,
+    msg_item_id: u32,
+}
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L132-143)
+```rust
+        if self
+            .protocol
+            .forward_rate_limiter
+            .check_key(&(content.from.clone(), content.to.clone(), self.msg_item_id))
+            .is_err()
+        {
+            debug!(
+                "from: {}, to {}, item_name: {}, rate limit is reached",
+                content.from, content.to, "ConnectionRequest",
+            );
+            return StatusCode::TooManyRequests.with_context("ConnectionRequest");
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L145-147)
+```rust
+        if self_peer_id == &content.to {
+            self.respond_delivered(content.from, &content.to, content.listen_addrs)
+                .await
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L161-166)
+```rust
+        if let Some((_, t)) = self.protocol.pending_delivered.get(&from_peer_id) {
+            let now = unix_time_as_millis();
+            if now - t < HOLE_PUNCHING_INTERVAL {
+                return StatusCode::Ignore
+                    .with_context("a same message is already replied in a moment ago");
+            }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L226-232)
+```rust
+        if let Err(error) = self
+            .p2p_control
+            .send_message_to(self.peer, proto_id, new_message)
+            .await
+        {
+            return StatusCode::ForwardError.with_context(error);
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L234-237)
+```rust
+        let now = unix_time_as_millis();
+        self.protocol
+            .pending_delivered
+            .insert(from_peer_id, (remote_listens, now));
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L111-115)
+```rust
+                    let listens_info = self
+                        .protocol
+                        .pending_delivered
+                        .get(&content.from)
+                        .map(|info| info.0.clone());
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L154-160)
+```rust
+                                            let _ignore = control
+                                                .raw_session(
+                                                    stream,
+                                                    addr,
+                                                    RawSessionInfo::inbound(listen_addr),
+                                                )
+                                                .await;
+```
+
+**File:** network/src/protocols/hole_punching/mod.rs (L95-107)
+```rust
+        if self
+            .rate_limiter
+            .check_key(&(session_id, msg.item_id()))
+            .is_err()
+        {
+            debug!(
+                "process {} from {}; result is {}",
+                item_name,
+                session_id,
+                status::StatusCode::TooManyRequests.with_context(msg.item_name())
+            );
+            return;
+        }
+```
