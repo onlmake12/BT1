@@ -1,0 +1,134 @@
+The code at line 252 is confirmed: [1](#0-0) 
+
+The bug is real. Line 252 uses `row_lock.try_get::<bool, _>(0)` instead of `row_type.try_get::<bool, _>(0)` in the final match block. On PostgreSQL, `EXISTS` returns `BOOLEAN`, so `try_get::<bool, _>(0)` always succeeds and the `Ok(r)` arm is taken — returning the lock-script result instead of the type-script result. On SQLite, `EXISTS` returns `BIGINT`, so `try_get::<bool, _>` fails and the `Err` arm correctly reads `row_type`. [2](#0-1) 
+
+The rollback path at lines 27–39 calls `script_exists_in_output` for both lock and type script IDs, and incorrectly deletes type-script-only scripts on PostgreSQL. [3](#0-2) 
+
+---
+
+Audit Report
+
+## Title
+Wrong Row Variable in `script_exists_in_output` Causes Silent Script Table Corruption on PostgreSQL During Block Rollback - (File: `util/rich-indexer/src/indexer/remove.rs`)
+
+## Summary
+In `script_exists_in_output`, the final `match` at line 252 evaluates `row_lock.try_get::<bool, _>(0)` instead of `row_type.try_get::<bool, _>(0)`. On PostgreSQL, this always returns the lock-script existence result instead of the type-script existence result. During `rollback_block`, scripts referenced only as `type_script_id` in surviving outputs are incorrectly reported as absent and permanently deleted from the `script` table, silently corrupting the rich-indexer database on every reorg when PostgreSQL is the backend.
+
+## Finding Description
+`script_exists_in_output` (lines 204–257) issues two queries: `row_lock` checks `WHERE lock_script_id = $1` and `row_type` checks `WHERE type_script_id = $1`. After the `row_type` query is fetched (line 249), the final match block at line 252 reads `row_lock` again instead of `row_type`:
+
+```rust
+// Line 252 — BUG: row_lock used instead of row_type
+match row_lock.try_get::<bool, _>(0) {
+    Ok(r) => Ok(r),
+    Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+}
+```
+
+On PostgreSQL, `EXISTS` returns `BOOLEAN`, so `try_get::<bool, _>(0)` on `row_lock` always succeeds and returns the lock-script result. The `Err` branch (which correctly reads `row_type`) is never reached. On SQLite, `EXISTS` returns `BIGINT`, so `try_get::<bool, _>` fails and the `Err` branch correctly reads `row_type` — masking the bug in all existing tests.
+
+In `rollback_block` (lines 27–39), after outputs are deleted, `script_exists_in_output(type_script_id, tx)` is called for each type script. For a script used only as a type script (not a lock script), `row_lock` returns `false` and `row_type` returns `true`. The function incorrectly returns `false` on PostgreSQL, causing the script to be added to `script_id_list_to_remove` and deleted. Surviving `output` rows still hold `type_script_id` foreign keys pointing to now-deleted `script` rows.
+
+## Impact Explanation
+This matches **Note (0–500 points): Any local RPC API crash/incorrect behavior**. After corruption, all rich-indexer RPC calls that join `output` with `script` on `type_script_id` (`get_cells`, `get_transactions`, `get_cells_capacity` with `script_type: Type`) silently return empty or incorrect results for cells that are live on-chain. The actual CKB blockchain state and consensus are unaffected; the impact is confined to the local rich-indexer PostgreSQL database and its RPC query results. The corruption is permanent and cumulative across reorgs, requiring a full re-index to recover.
+
+## Likelihood Explanation
+No attacker is required. Reorgs are a normal occurrence on CKB mainnet and testnet. Any block containing outputs with type scripts (DAO, UDT, NFT, TYPE_ID — extremely common) triggers the bug on rollback. The PostgreSQL backend is an officially supported deployment mode. The SQLite path is unaffected, so the bug is invisible in the default configuration and all existing tests.
+
+## Recommendation
+Change line 252 from `row_lock.try_get::<bool, _>(0)` to `row_type.try_get::<bool, _>(0)`:
+
+```rust
+// Correct fix
+match row_type.try_get::<bool, _>(0) {
+    Ok(r) => Ok(r),
+    Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+}
+```
+
+Add a PostgreSQL-backed integration test for `rollback_block` that includes outputs with type scripts to prevent regression.
+
+## Proof of Concept
+1. Start a CKB node with `--rich-indexer` and a PostgreSQL backend.
+2. Submit a block containing a transaction with an output that has a type script (e.g., TYPE_ID or DAO deposit). The script is inserted into the `script` table; the output references it via `type_script_id`.
+3. Trigger a reorg that rolls back this block.
+4. `rollback_block` calls `script_exists_in_output(type_script_id, tx)`. `row_lock` returns `false` (not a lock script). `row_type` returns `true` (is a type script). Function returns `false` on PostgreSQL due to the bug.
+5. The script is deleted from the `script` table. The `output` row still holds the now-dangling `type_script_id`.
+6. Query `get_cells` with the type script → returns empty, even though the cell is live on-chain.
+
+### Citations
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L27-39)
+```rust
+    // remove script
+    let mut script_id_list_to_remove = Vec::new();
+    for (_, lock_script_id, type_script_id) in output_lock_type_list {
+        if !script_exists_in_output(lock_script_id, tx).await? {
+            script_id_list_to_remove.push(lock_script_id);
+        }
+        if let Some(type_script_id) = type_script_id
+            && !script_exists_in_output(type_script_id, tx).await?
+        {
+            script_id_list_to_remove.push(type_script_id);
+        }
+    }
+    remove_batch_by_blobs("script", "id", &script_id_list_to_remove, tx).await?;
+```
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L204-257)
+```rust
+async fn script_exists_in_output(
+    script_id: i64,
+    tx: &mut Transaction<'_, Any>,
+) -> Result<bool, Error> {
+    let row_lock = sqlx::query(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM output
+            WHERE lock_script_id = $1
+        )
+        "#,
+    )
+    .bind(script_id)
+    .fetch_one(tx.as_mut())
+    .await
+    .map_err(|err| Error::DB(err.to_string()))?;
+
+    // pg type is BOOLEAN
+    match row_lock.try_get::<bool, _>(0) {
+        Ok(r) => {
+            if r {
+                return Ok(true);
+            }
+        }
+        Err(_) => {
+            // sqlite type is BIGINT
+            if row_lock.get::<i64, _>(0) == 1 {
+                return Ok(true);
+            }
+        }
+    }
+
+    let row_type = sqlx::query(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM output
+            WHERE type_script_id = $1
+        )
+        "#,
+    )
+    .bind(script_id)
+    .fetch_one(tx.as_mut())
+    .await
+    .map_err(|err| Error::DB(err.to_string()))?;
+
+    // pg type is BOOLEAN
+    match row_lock.try_get::<bool, _>(0) {
+        Ok(r) => Ok(r),
+        // sqlite type is BIGINT
+        Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+    }
+}
+```

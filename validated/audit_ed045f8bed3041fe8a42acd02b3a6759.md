@@ -1,0 +1,249 @@
+All code claims check out against the actual source. Here is the validation result:
+
+---
+
+Audit Report
+
+## Title
+Unbounded O(N) Orphan Leader Scan Per Block Without PoW Guard Enables Cheap DoS on ChainService — (`chain/src/orphan_broker.rs`, `chain/src/utils/orphan_block_pool.rs`)
+
+## Summary
+`process_lonely_block` unconditionally calls `search_orphan_leaders()` on every block processed, which clones and iterates the entire orphan leaders set. Because `non_contextual_verify` performs no PoW check, any peer can cheaply inject structurally valid blocks with arbitrary unknown parent hashes, each becoming a new orphan leader. With N accumulated leaders, every subsequent block — including legitimate chain-tip blocks — incurs O(N) overhead on the single-threaded `ChainService`, degrading block processing throughput proportionally to orphan pool size with no upper bound enforced.
+
+## Finding Description
+
+**Unconditional O(N) scan per block.**
+`process_lonely_block` calls `search_orphan_leaders()` unconditionally at line 125, regardless of whether the incoming block was itself orphaned or not. [1](#0-0) 
+
+`search_orphan_leaders` iterates every leader by cloning the full leaders set: [2](#0-1) 
+
+`clone_leaders` acquires a read lock and clones the entire `HashSet<ParentHash>` — O(N) in the number of leaders: [3](#0-2) 
+
+For each leader, `search_orphan_leader` performs a `get_block_status` lookup and an `is_pending_verify.contains` check. For attacker-injected leaders (unknown parent, not stored, not pending), it returns early at line 53–58, but only after both lookups — O(N) total per block: [4](#0-3) 
+
+**No PoW check in `non_contextual_verify`.**
+`asynchronous_process_block` calls `non_contextual_verify` before orphan insertion: [5](#0-4) 
+
+`BlockVerifier::verify` only checks proposals limit, block bytes, cellbase structure, duplicates, and merkle root — no PoW: [6](#0-5) 
+
+PoW is only verified in `HeaderVerifier`, which is context-dependent and requires the parent header — not reachable for orphan blocks.
+
+**No capacity enforcement on the orphan pool.**
+`OrphanBlockPool::with_capacity` only pre-allocates the `HashMap`; `insert` never rejects or evicts: [7](#0-6) 
+
+The comment at line 125–127 explicitly forbids `LruCache` (to preserve consistency with `block_status_map`), confirming there is no eviction mechanism. `ORPHAN_BLOCK_SIZE = BLOCK_DOWNLOAD_WINDOW = 8192` is only a pre-allocation hint: [8](#0-7) 
+
+**Cleanup does not bound the attack.**
+`clean_expired_orphans` runs every 60 seconds and only removes blocks from epochs older than `tip_epoch - 6`. An attacker using current-epoch blocks is never cleaned up: [9](#0-8) [10](#0-9) 
+
+## Impact Explanation
+The `ChainService` thread is single-threaded and processes blocks sequentially. With N orphan leaders, every block received — including legitimate chain-tip blocks — triggers N `get_block_status` + N `is_pending_verify.contains` calls before returning. Block processing throughput degrades linearly with N. Since the pool is unbounded, an attacker can grow N arbitrarily, causing sustained throughput degradation that delays block propagation and verification across the node. This matches the allowed impact: **High — Vulnerabilities or bad designs which could cause CKB network congestion with few costs (10001–15000 points).**
+
+## Likelihood Explanation
+The attack requires only a P2P connection and the ability to send `SendBlock` messages containing structurally valid blocks (valid cellbase, correct merkle root, arbitrary parent hash, any nonce). No PoW computation is required. The attacker can accumulate leaders gradually over time, pacing sends to avoid the bounded `process_block_tx` channel (capacity 24). The attack is concretely reachable from any unprivileged peer and is repeatable indefinitely since no cleanup removes current-epoch orphan leaders.
+
+## Recommendation
+1. **Enforce a hard capacity limit in `OrphanBlockPool::insert`**: reject or evict (e.g., random eviction) when `leaders.len()` exceeds a threshold (e.g., 256 distinct leaders).
+2. **Scope `search_orphan_leaders` to the newly inserted block**: instead of scanning all leaders on every block, only check whether the current block's hash resolves any pending orphan chain (i.e., check if the current block's hash is a known leader).
+3. **Add PoW pre-screening** at the P2P layer before blocks enter `asynchronous_process_block`, or at minimum before orphan pool insertion, to raise the cost of injecting new leaders.
+
+## Proof of Concept
+```
+1. Connect to a CKB node as a peer.
+2. Construct 2000+ blocks, each with:
+   - A valid cellbase transaction
+   - A correct merkle root
+   - A unique random parent_hash not in the node's DB
+   - Any nonce (PoW not checked by non_contextual_verify)
+3. Send all via SendBlock P2P messages, paced to avoid channel backpressure.
+   Each passes non_contextual_verify and is inserted into the orphan pool as a new leader.
+4. Send a legitimate block (or any valid block).
+5. Observe: process_lonely_block → search_orphan_leaders iterates all 2000+ leaders,
+   performing 2000+ get_block_status + 2000+ is_pending_verify.contains calls per block.
+6. Measure per-block processing latency before (baseline) and after (2000+ leaders).
+   Assert latency scales linearly with leader count.
+   Repeat with growing N to demonstrate unbounded degradation.
+```
+
+### Citations
+
+**File:** chain/src/orphan_broker.rs (L39-59)
+```rust
+    fn search_orphan_leader(&self, leader_hash: ParentHash) {
+        let leader_status = self.shared.get_block_status(&leader_hash);
+
+        if leader_status.eq(&BlockStatus::BLOCK_INVALID) {
+            let descendants: Vec<LonelyBlockHash> = self
+                .orphan_blocks_broker
+                .remove_blocks_by_parent(&leader_hash);
+            for descendant in descendants {
+                self.process_invalid_block(descendant);
+            }
+            return;
+        }
+
+        let leader_is_pending_verify = self.is_pending_verify.contains(&leader_hash);
+        if !leader_is_pending_verify && !leader_status.contains(BlockStatus::BLOCK_STORED) {
+            trace!(
+                "orphan leader: {} not stored {:?} and not in is_pending_verify: {}",
+                leader_hash, leader_status, leader_is_pending_verify
+            );
+            return;
+        }
+```
+
+**File:** chain/src/orphan_broker.rs (L74-78)
+```rust
+    fn search_orphan_leaders(&self) {
+        for leader_hash in self.orphan_blocks_broker.clone_leaders() {
+            self.search_orphan_leader(leader_hash);
+        }
+    }
+```
+
+**File:** chain/src/orphan_broker.rs (L107-132)
+```rust
+    pub(crate) fn process_lonely_block(&self, lonely_block: LonelyBlockHash) {
+        let block_hash = lonely_block.block_number_and_hash.hash();
+        let block_number = lonely_block.block_number_and_hash.number();
+        let parent_hash = lonely_block.parent_hash();
+        let parent_is_pending_verify = self.is_pending_verify.contains(&parent_hash);
+        let parent_status = self.shared.get_block_status(&parent_hash);
+        if parent_is_pending_verify || parent_status.contains(BlockStatus::BLOCK_STORED) {
+            debug!(
+                "parent {} has stored: {:?} or is_pending_verify: {}, processing descendant directly {}-{}",
+                parent_hash, parent_status, parent_is_pending_verify, block_number, block_hash,
+            );
+            self.process_descendant(lonely_block);
+        } else if parent_status.eq(&BlockStatus::BLOCK_INVALID) {
+            self.process_invalid_block(lonely_block);
+        } else {
+            self.orphan_blocks_broker.insert(lonely_block);
+        }
+
+        self.search_orphan_leaders();
+
+        if let Some(metrics) = ckb_metrics::handle() {
+            metrics
+                .ckb_chain_orphan_count
+                .set(self.orphan_blocks_broker.len() as i64)
+        }
+    }
+```
+
+**File:** chain/src/utils/orphan_block_pool.rs (L28-54)
+```rust
+    fn with_capacity(capacity: usize) -> Self {
+        InnerPool {
+            blocks: HashMap::with_capacity(capacity),
+            parents: HashMap::new(),
+            leaders: HashSet::new(),
+        }
+    }
+
+    fn insert(&mut self, lonely_block: LonelyBlockHash) {
+        let hash = lonely_block.hash();
+        let parent_hash = lonely_block.parent_hash();
+        self.blocks
+            .entry(parent_hash.clone())
+            .or_default()
+            .insert(hash.clone(), lonely_block);
+        // Out-of-order insertion needs to be deduplicated
+        self.leaders.remove(&hash);
+        // It is a possible optimization to make the judgment in advance,
+        // because the parent of the block must not be equal to its own hash,
+        // so we can judge first, which may reduce one arc clone
+        if !self.parents.contains_key(&parent_hash) {
+            // Block referenced by `parent_hash` is not in the pool,
+            // and it has at least one child, the new inserted block, so add it to leaders.
+            self.leaders.insert(parent_hash.clone());
+        }
+        self.parents.insert(hash, parent_hash);
+    }
+```
+
+**File:** chain/src/utils/orphan_block_pool.rs (L113-122)
+```rust
+    fn need_clean(&self, parent_hash: &packed::Byte32, tip_epoch: EpochNumber) -> bool {
+        self.blocks
+            .get(parent_hash)
+            .and_then(|map| {
+                map.iter().next().map(|(_, lonely_block)| {
+                    lonely_block.epoch_number() + EXPIRED_EPOCH < tip_epoch
+                })
+            })
+            .unwrap_or_default()
+    }
+```
+
+**File:** chain/src/utils/orphan_block_pool.rs (L163-165)
+```rust
+    pub fn clone_leaders(&self) -> Vec<ParentHash> {
+        self.inner.read().leaders.iter().cloned().collect()
+    }
+```
+
+**File:** chain/src/chain_service.rs (L61-63)
+```rust
+                recv(clean_expired_orphan_timer) -> _ => {
+                    self.orphan_broker.clean_expired_orphans();
+                },
+```
+
+**File:** chain/src/chain_service.rs (L117-131)
+```rust
+        if lonely_block.switch().is_none()
+            || matches!(lonely_block.switch(), Some(switch) if !switch.disable_non_contextual())
+        {
+            let result = self.non_contextual_verify(lonely_block.block());
+            if let Err(err) = result {
+                error!(
+                    "block {}-{} verify failed: {:?}",
+                    block_number, block_hash, err
+                );
+                self.shared
+                    .insert_block_status(lonely_block.block().hash(), BlockStatus::BLOCK_INVALID);
+                lonely_block.execute_callback(Err(err));
+                return;
+            }
+        }
+```
+
+**File:** verification/src/block_verifier.rs (L39-47)
+```rust
+    fn verify(&self, target: &BlockView) -> Result<(), Error> {
+        let max_block_proposals_limit = self.consensus.max_block_proposals_limit();
+        let max_block_bytes = self.consensus.max_block_bytes();
+        BlockProposalsLimitVerifier::new(max_block_proposals_limit).verify(target)?;
+        BlockBytesVerifier::new(max_block_bytes).verify(target)?;
+        CellbaseVerifier::new().verify(target)?;
+        DuplicateVerifier::new().verify(target)?;
+        MerkleRootVerifier::new().verify(target)
+    }
+```
+
+**File:** chain/src/init.rs (L22-43)
+```rust
+const ORPHAN_BLOCK_SIZE: usize = BLOCK_DOWNLOAD_WINDOW as usize;
+
+/// Here we distinguish between build_chain_services and start_chain_services:
+/// * build_chain_services simply initializes ChainController, setting up all relevant
+///   threads, and return join handle for the main chain service thread.
+/// * start_chain_services first builds relevant data just like build_chain_services,
+///   in addition, it register the main chain service thread against CKB's handler. As
+///   a result, start_chain_services only returns ChainController, it is expected that
+///   CKB's stop handler shall be used to terminate the created chain service.
+pub fn start_chain_services(builder: ChainServicesBuilder) -> ChainController {
+    let (chain_service, chain_service_thread) = build_chain_services(builder);
+    register_thread("ChainService", chain_service_thread);
+
+    chain_service
+}
+
+/// Please refer to +start_chain_services+ for difference between build_chain_services
+/// and start_chain_services
+pub fn build_chain_services(
+    builder: ChainServicesBuilder,
+) -> (ChainController, thread::JoinHandle<()>) {
+    let orphan_blocks_broker = Arc::new(OrphanBlockPool::with_capacity(ORPHAN_BLOCK_SIZE));
+```

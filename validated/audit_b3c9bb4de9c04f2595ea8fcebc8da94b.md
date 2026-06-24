@@ -1,0 +1,163 @@
+The code at line 252 is confirmed exactly as described. Let me verify the impact classification against the allowed scope.
+
+Audit Report
+
+## Title
+Wrong Variable Reference in `script_exists_in_output()` Causes Premature Script Deletion During Reorg — (`File: util/rich-indexer/src/indexer/remove.rs`)
+
+## Summary
+`script_exists_in_output()` in `util/rich-indexer/src/indexer/remove.rs` contains a copy-paste error at line 252: the second `match` block reads `row_lock` instead of `row_type`. On PostgreSQL, this causes the function to always return the lock-script existence result for both checks, making `rollback_block` incorrectly delete any script that is referenced only as a `type_script_id` in surviving outputs. This produces silent, permanent data corruption of the rich-indexer database on every chain reorganization involving type-scripted cells when using PostgreSQL.
+
+## Finding Description
+`script_exists_in_output` runs two SQL `EXISTS` queries — one for `lock_script_id` and one for `type_script_id` — and should return `true` if either finds a match. [1](#0-0) 
+
+After fetching `row_type` at line 237, the second `match` block at line 252 incorrectly reads `row_lock` again: [2](#0-1) 
+
+On PostgreSQL, `SELECT EXISTS(...)` returns a `BOOLEAN` column. `row_lock.try_get::<bool, _>(0)` succeeds, so the `Ok(r)` arm is always taken and `row_type` is never consulted. The function returns the lock-script result for both the lock and type script checks. On SQLite, `SELECT EXISTS(...)` returns `BIGINT`, so `try_get::<bool, _>` fails and the `Err` arm correctly falls through to `row_type.get::<i64, _>(0)` — SQLite is unaffected.
+
+`rollback_block` uses the return value to gate deletion: [3](#0-2) 
+
+When rolling back a block containing outputs with a type script that is not simultaneously used as a lock script in any surviving output, `script_exists_in_output` returns `false` for that type script ID (because it re-checks the lock-script query). The script row is then deleted from the `script` table even though surviving outputs still hold a foreign-key reference to it, silently corrupting the database.
+
+## Impact Explanation
+The rich-indexer is CKB's built-in relational state storage mechanism. This bug causes incorrect deletion of script rows during the rollback path, permanently corrupting the state stored by the rich-indexer. Subsequent RPC queries (`get_cells`, `get_transactions`, `get_cells_capacity`) that join on `script_id` will return incomplete or missing results for any cell whose type script was incorrectly purged. This matches **Medium (2001–10000 points): Suboptimal implementation of CKB state storage mechanism**, as the rich-indexer is the CKB built-in state storage layer and this is a correctness defect in its rollback/reorg handling.
+
+## Likelihood Explanation
+Chain reorganizations are a routine, externally-triggerable event requiring no special privilege — any peer relaying a competing chain of sufficient work causes a reorg and invokes `rollback_block`. Type scripts are ubiquitous on CKB (UDT, NFT, DAO, etc.). Any PostgreSQL-backed rich-indexer node will silently corrupt its database on every reorg involving type-scripted cells. The default deployment uses SQLite (unaffected), but PostgreSQL is an officially documented and supported configuration. [4](#0-3) 
+
+## Recommendation
+Change line 252 from `row_lock.try_get::<bool, _>(0)` to `row_type.try_get::<bool, _>(0)`:
+
+```rust
+// pg type is BOOLEAN
+match row_type.try_get::<bool, _>(0) {   // ← was row_lock
+    Ok(r) => Ok(r),
+    // sqlite type is BIGINT
+    Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+}
+``` [5](#0-4) 
+
+## Proof of Concept
+1. Configure a CKB node with the rich-indexer using PostgreSQL (`db_type = "postgres"` in `ckb.toml`).
+2. Sync to a height containing at least one output with a type script (e.g., any UDT or DAO cell).
+3. Trigger a chain reorganization (e.g., by connecting to a peer with a competing chain of equal or greater work that rolls back the block containing the type-scripted output).
+4. `rollback_block` is called, which calls `script_exists_in_output(type_script_id, tx)`.
+5. On PostgreSQL, the function returns the lock-script existence result for the type script ID. If the type script is not also used as a lock script in any surviving output, the function returns `false`.
+6. The type script row is added to `script_id_list_to_remove` and deleted from the `script` table.
+7. Query `get_cells` or `get_transactions` for the type script — results are missing or incomplete, confirming database corruption.
+
+A targeted unit test can reproduce this by: inserting a block with one output having a unique type script (not used as any lock script), calling `rollback_block` against a PostgreSQL connection, and asserting that the script row still exists in the `script` table after rollback — it will have been incorrectly deleted.
+
+### Citations
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L29-39)
+```rust
+    for (_, lock_script_id, type_script_id) in output_lock_type_list {
+        if !script_exists_in_output(lock_script_id, tx).await? {
+            script_id_list_to_remove.push(lock_script_id);
+        }
+        if let Some(type_script_id) = type_script_id
+            && !script_exists_in_output(type_script_id, tx).await?
+        {
+            script_id_list_to_remove.push(type_script_id);
+        }
+    }
+    remove_batch_by_blobs("script", "id", &script_id_list_to_remove, tx).await?;
+```
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L208-235)
+```rust
+    let row_lock = sqlx::query(
+        r#"
+        SELECT EXISTS (
+            SELECT 1
+            FROM output
+            WHERE lock_script_id = $1
+        )
+        "#,
+    )
+    .bind(script_id)
+    .fetch_one(tx.as_mut())
+    .await
+    .map_err(|err| Error::DB(err.to_string()))?;
+
+    // pg type is BOOLEAN
+    match row_lock.try_get::<bool, _>(0) {
+        Ok(r) => {
+            if r {
+                return Ok(true);
+            }
+        }
+        Err(_) => {
+            // sqlite type is BIGINT
+            if row_lock.get::<i64, _>(0) == 1 {
+                return Ok(true);
+            }
+        }
+    }
+```
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L251-257)
+```rust
+    // pg type is BOOLEAN
+    match row_lock.try_get::<bool, _>(0) {
+        Ok(r) => Ok(r),
+        // sqlite type is BIGINT
+        Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+    }
+}
+```
+
+**File:** util/rich-indexer/README.md (L59-108)
+```markdown
+## Enabling Rich Indexer with PostgreSQL
+
+To enable PostgreSQL, you must first set up a functional PostgreSQL service on your own. Please refer to [Server Administration](https://www.postgresql.org/docs/16/admin.html) for guidance. It is recommended to install version 16 or above.
+
+For hardware with 4 cores and 8 GB of RAM, it is recommended to make the following two configuration parameter adjustments in PostgreSQL to achieve optimal query performance.
+
+postgresql.conf:
+
+```conf
+#------------------------------------------------------------------------------
+# RESOURCE USAGE (except WAL)
+#------------------------------------------------------------------------------
+
+# - Memory -
+
+shared_buffers = 2GB                    # min 128kB
+```
+
+```conf
+#------------------------------------------------------------------------------
+# QUERY TUNING
+#------------------------------------------------------------------------------
+
+# - Other Planner Options -
+
+jit = off                               # allow JIT compilation
+```
+
+Next, configure the PostgreSQL connection parameters for the CKB node.
+
+ckb.toml:
+
+```toml
+# CKB rich-indexer has its unique configuration.
+[indexer_v2.rich_indexer]
+# By default, it uses an embedded SQLite database.
+# Alternatively, you can set up a PostgreSQL database service and provide the connection parameters.
+db_type = "postgres"
+db_name = "ckb-rich-indexer"
+db_host = "127.0.0.1"
+db_port = 5432
+db_user = "postgres"
+db_password = "123456"
+```
+
+Finally, start the CKB node:
+
+```bash
+ckb run -C <path> --rich-indexer
+```
+```
