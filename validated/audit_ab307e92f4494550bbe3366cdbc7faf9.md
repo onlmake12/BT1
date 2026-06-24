@@ -1,0 +1,244 @@
+Let me also check the `HolePunching` struct and the `peer_registry` to understand if there's any existing session-to-peer-ID binding mechanism.
+
+Audit Report
+
+## Title
+Unauthenticated `pending_delivered` Poisoning via Spoofed `ConnectionRequest.from` Enables Attacker-Directed Outbound TCP Connections and Resource Exhaustion — (`network/src/protocols/hole_punching/component/connection_request.rs`, `connection_sync.rs`)
+
+## Summary
+`ConnectionRequestProcess::execute()` writes attacker-controlled `content.from` and `content.listen_addrs` directly into `pending_delivered` without verifying that `content.from` matches the authenticated session peer ID. A single connected attacker can then send a `ConnectionSync` with the same spoofed `from`, causing the victim node to spawn unbounded 30-second background tasks that repeatedly open TCP sockets to attacker-controlled addresses. By rotating `content.from` to bypass the `forward_rate_limiter`, the attacker can sustain up to 30 new background tasks per second, exhausting file descriptors and crashing the node.
+
+## Finding Description
+
+**Root cause — no `from` ↔ session binding in `respond_delivered`:**
+
+`ConnectionRequestProcess` holds `self.peer: PeerIndex` (the authenticated session ID) but never uses it to validate `content.from`. When `self_peer_id == &content.to`, the handler calls `respond_delivered(content.from, ...)` where `content.from` is taken verbatim from the wire: [1](#0-0) 
+
+Inside `respond_delivered`, the attacker-supplied `from_peer_id` and `remote_listens` are written directly into the shared map with no session-identity check: [2](#0-1) 
+
+**Root cause — no `from` ↔ session binding in `ConnectionSyncProcess`:**
+
+`ConnectionSyncProcess` does not even hold a `peer` field: [3](#0-2) 
+
+It reads `content.from` from the wire and looks it up in `pending_delivered` without any session verification: [4](#0-3) 
+
+The retrieved addresses are passed directly to `try_nat_traversal`: [5](#0-4) 
+
+**`try_nat_traversal` makes real outbound TCP connections for 30 seconds:**
+
+The function loops for 30 seconds at ~200 ms intervals, creating a new `TcpSocket` and calling `socket.connect(net_addr)` on each iteration: [6](#0-5) 
+
+On success, the stream is promoted to a full inbound `raw_session`: [7](#0-6) 
+
+Each `ConnectionSync` that reaches the target path spawns an independent `runtime::spawn` task: [8](#0-7) 
+
+**Rate-limiter bypass:**
+
+The `forward_rate_limiter` is keyed by `(content.from, content.to, msg_item_id)`: [9](#0-8) [10](#0-9) 
+
+The per-session `rate_limiter` (keyed by `(session_id, msg.item_id())`) allows 30 requests/second: [11](#0-10) 
+
+By rotating `content.from` to a fresh random `PeerId` on each message pair, the attacker bypasses the `forward_rate_limiter` entirely and is limited only by the 30 msg/s per-session cap. This allows spawning up to 30 new 30-second background tasks per second. After 30 seconds, 900 concurrent tasks are active, each cycling through TCP socket creation, exhausting file descriptors and crashing the node.
+
+**Complete two-message attack:**
+```
+Attacker → Node X (single authenticated session):
+  msg1: ConnectionRequest { from: <random_peer_id_N>, to: X, listen_addrs: [attacker_ip:port] }
+        → respond_delivered → pending_delivered[random_peer_id_N] = ([attacker_ip:port], now)
+
+  msg2: ConnectionSync { from: <random_peer_id_N>, to: X, route: [] }
+        → pending_delivered.get(random_peer_id_N) → try_nat_traversal(bind_addr, attacker_ip:port)
+        → runtime::spawn(30-second TCP loop to attacker_ip:port)
+
+  Repeat with fresh random_peer_id_N+1 at 30 msg/s → 900 concurrent tasks after 30s
+```
+
+## Impact Explanation
+
+**High (10001–15000 points): Vulnerabilities which could easily crash a CKB node.**
+
+Each `ConnectionSync` that reaches the target path spawns an unbounded `runtime::spawn` task running for 30 seconds. At the allowed 30 msg/s per session, an attacker sustains 900 concurrent tasks after 30 seconds, each holding open TCP sockets in a tight loop. This exhausts the process's file descriptor limit (typically 1024 on default Linux configurations), causing subsequent socket operations across all protocols to fail and crashing or severely degrading the node. The attack requires only a single inbound TCP connection and two structurally valid messages per target address.
+
+## Likelihood Explanation
+
+- Requires only a single outbound TCP connection to any CKB node with hole-punching enabled.
+- No cryptographic material, no privileged role, no hashpower required.
+- Both messages pass all existing structural validation checks.
+- The `forward_rate_limiter` bypass via `from` rotation is trivial to implement.
+- Locally reproducible against a single node with a minimal Rust test harness.
+
+## Recommendation
+
+In `respond_delivered`, resolve the authenticated peer ID for `self.peer` from the peer registry and assert it equals `from_peer_id` before writing to `pending_delivered`:
+
+```rust
+// In ConnectionRequestProcess::respond_delivered:
+let session_peer_id = self.protocol.network_state
+    .peer_registry.read()
+    .get_peer(self.peer)
+    .and_then(|p| extract_peer_id(&p.connected_addr));
+
+if session_peer_id.as_ref() != Some(&from_peer_id) {
+    return StatusCode::InvalidFromPeerId
+        .with_context("from peer id does not match session peer id");
+}
+```
+
+Add a `peer: PeerIndex` field to `ConnectionSyncProcess` (passed from `received()` via `context.session.id`) and apply the same check before consulting `pending_delivered` in `execute()`. This ensures `pending_delivered` can only be populated by the peer whose identity was authenticated by the Noise/TLS handshake.
+
+## Proof of Concept
+
+```
+1. Start node X with hole-punching enabled.
+2. Connect attacker session A (authenticated peer_id = attacker_id, session_id = S) to X.
+3. For N in 0..900:
+   a. Generate random_peer_id_N = PeerId::random()
+   b. Send ConnectionRequest { from: random_peer_id_N, to: X, listen_addrs: [attacker_ip:1234] }
+      Assert: pending_delivered[random_peer_id_N] == ([attacker_ip:1234], _)  ← invariant broken
+   c. Send ConnectionSync { from: random_peer_id_N, to: X, route: [] }
+      Observe: runtime::spawn task created, outbound TCP SYN to attacker_ip:1234
+4. After ~30 seconds, observe node X failing to open new sockets (EMFILE / ENFILE errors),
+   causing ping/discovery/sync protocol failures and node crash or severe degradation.
+```
+
+### Citations
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L132-143)
+```rust
+        if self
+            .protocol
+            .forward_rate_limiter
+            .check_key(&(content.from.clone(), content.to.clone(), self.msg_item_id))
+            .is_err()
+        {
+            debug!(
+                "from: {}, to {}, item_name: {}, rate limit is reached",
+                content.from, content.to, "ConnectionRequest",
+            );
+            return StatusCode::TooManyRequests.with_context("ConnectionRequest");
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L145-147)
+```rust
+        if self_peer_id == &content.to {
+            self.respond_delivered(content.from, &content.to, content.listen_addrs)
+                .await
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L234-237)
+```rust
+        let now = unix_time_as_millis();
+        self.protocol
+            .pending_delivered
+            .insert(from_peer_id, (remote_listens, now));
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L51-57)
+```rust
+pub(crate) struct ConnectionSyncProcess<'a> {
+    message: packed::ConnectionSyncReader<'a>,
+    protocol: &'a HolePunching,
+    p2p_control: &'a ServiceAsyncControl,
+    bind_addr: Option<SocketAddr>,
+    msg_item_id: u32,
+}
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L85-96)
+```rust
+        if self
+            .protocol
+            .forward_rate_limiter
+            .check_key(&(content.from.clone(), content.to.clone(), self.msg_item_id))
+            .is_err()
+        {
+            debug!(
+                "from: {}, to {}, item_name: {}, rate limit is reached",
+                content.from, content.to, "ConnectionSync",
+            );
+            return StatusCode::TooManyRequests.with_context("ConnectionSync");
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L111-115)
+```rust
+                    let listens_info = self
+                        .protocol
+                        .pending_delivered
+                        .get(&content.from)
+                        .map(|info| info.0.clone());
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L119-124)
+```rust
+                            let tasks = listens
+                                .into_iter()
+                                .map(|listen_addr| {
+                                    Box::pin(try_nat_traversal(self.bind_addr, listen_addr))
+                                })
+                                .collect::<Vec<_>>();
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L144-163)
+```rust
+                                    let control: ServiceAsyncControl = self.p2p_control.clone();
+                                    runtime::spawn(async move {
+                                        if let Ok(((stream, addr), _)) = select_ok(tasks).await {
+                                            debug!("NAT traversal success, addr: {:?}", addr);
+                                            if let Some(metrics) = ckb_metrics::handle() {
+                                                metrics
+                                                    .ckb_hole_punching_passive_success_count
+                                                    .inc();
+                                            }
+
+                                            let _ignore = control
+                                                .raw_session(
+                                                    stream,
+                                                    addr,
+                                                    RawSessionInfo::inbound(listen_addr),
+                                                )
+                                                .await;
+                                        }
+                                    });
+                                    Status::ok()
+```
+
+**File:** network/src/protocols/hole_punching/component/mod.rs (L68-85)
+```rust
+    while start_time.elapsed() < timeout_duration {
+        retry_count += 1;
+
+        // Add a small amount of random jitter (±25ms) to avoid conflicts
+        // caused by continuous precise synchronization
+        let jitter = Duration::from_millis(rand::random::<u64>() % 50);
+        let actual_interval = if rand::random::<bool>() {
+            base_retry_interval + jitter
+        } else {
+            base_retry_interval.saturating_sub(jitter)
+        };
+
+        let socket = create_socket(bind_addr, net_addr)?;
+
+        match runtime::timeout(
+            std::time::Duration::from_millis(200),
+            socket.connect(net_addr),
+        )
+```
+
+**File:** network/src/protocols/hole_punching/mod.rs (L95-107)
+```rust
+        if self
+            .rate_limiter
+            .check_key(&(session_id, msg.item_id()))
+            .is_err()
+        {
+            debug!(
+                "process {} from {}; result is {}",
+                item_name,
+                session_id,
+                status::StatusCode::TooManyRequests.with_context(msg.item_name())
+            );
+            return;
+        }
+```
