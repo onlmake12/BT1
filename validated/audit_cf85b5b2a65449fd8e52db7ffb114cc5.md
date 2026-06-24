@@ -1,0 +1,133 @@
+Audit Report
+
+## Title
+`check_tx_fee` Byte-Only Fee Gate Allows Cycle-Heavy Transactions to Bypass Minimum Fee Rate — (`tx-pool/src/util.rs`)
+
+## Summary
+
+`check_tx_fee` computes the minimum required fee using only serialized byte size, while pool sorting and eviction use `get_transaction_weight(size, cycles)` — the maximum of byte size and cycle-adjusted size. A transaction with small byte size but high cycle consumption passes the admission gate paying a fee rate far below `min_fee_rate`, forcing the node to execute full CKB-VM script verification at minimal attacker cost. An attacker can flood verification worker threads with such transactions, saturating them and preventing legitimate transactions from being processed.
+
+## Finding Description
+
+In `tx-pool/src/util.rs`, `check_tx_fee` computes the minimum fee against raw byte size only, with a comment explicitly acknowledging this is intentional as a "cheap check":
+
+```rust
+// Theoretically we cannot use size as weight directly to calculate fee_rate,
+// here min fee rate is used as a cheap check,
+// so we will use size to calculate fee_rate directly
+let min_fee = tx_pool.config.min_fee_rate.fee(tx_size as u64);
+``` [1](#0-0) 
+
+This check runs inside `pre_check`, **before** `verify_rtx` executes scripts and determines actual cycles: [2](#0-1) 
+
+After verification, the `TxEntry` is created with the actual verified cycles: [3](#0-2) 
+
+The pool's `fee_rate()` method — used for sorting and eviction — correctly uses `get_transaction_weight`: [4](#0-3) 
+
+`get_transaction_weight` is defined as `max(tx_size, cycles * DEFAULT_BYTES_PER_CYCLES)`: [5](#0-4) 
+
+where `DEFAULT_BYTES_PER_CYCLES = 0.000_170_571_4`: [6](#0-5) 
+
+The `DeclaredWrongCycles` rejection path (L736–748 in `process.rs`) only applies when the caller explicitly declares cycles. If no cycles are declared, `max_cycles = self.consensus.max_block_cycles()` is used — the maximum allowed — so the attacker simply omits the `cycles` field to bypass this guard entirely. [7](#0-6) 
+
+The default `max_tx_verify_cycles` is `TWO_IN_TWO_OUT_CYCLES * 20 = 70,000,000`: [8](#0-7) 
+
+The two denominators diverge maximally when `cycles` is large and `tx_size` is small:
+- **Admission gate**: `min_fee_rate * tx_size / 1000` (bytes only)
+- **Actual fee rate**: `fee / max(tx_size, cycles * DEFAULT_BYTES_PER_CYCLES) * 1000`
+
+## Impact Explanation
+
+With `tx_size = 500 bytes`, `cycles = 70,000,000`, `min_fee_rate = 1,000 shannons/KB`:
+
+- **Admission check**: `min_fee = 1000 * 500 / 1000 = 500 shannons` → passes
+- **Actual weight**: `max(500, 70_000_000 * 0.000_170_571_4) ≈ max(500, 11,940) = 11,940`
+- **Effective fee rate**: `500 / 11,940 * 1000 ≈ 41.9 shannons/KB` — ~24× below the configured minimum
+
+The node runs full `ContextualTransactionVerifier::verify(max_tx_verify_cycles=70,000,000)` before discovering the true fee rate. The transaction is admitted to the pool, sits at the bottom of the fee-rate ordering, and is eventually evicted — but the verification CPU cost has already been paid. An attacker can flood the verification worker threads with such transactions, saturating them and preventing legitimate transactions from being processed.
+
+This matches: **High (10001–15000 points) — Vulnerabilities or bad designs which could cause CKB network congestion with few costs.**
+
+## Likelihood Explanation
+
+Any unprivileged `send_transaction` RPC caller can trigger this without declaring cycles. The attacker pre-funds many UTXOs (each costing ~500 shannons ≈ 0.000005 CKB), then submits a stream of cycle-heavy, byte-small transactions. Each submission forces the node to execute up to 70M CKB-VM cycles. The `max_tx_verify_workers` (default: 3/4 of CPU cores) bounds parallelism but does not prevent saturation. The attack is economically viable: the cost-to-impact ratio strongly favors the attacker.
+
+## Recommendation
+
+1. If the caller declares cycles via the `cycles` field in `send_transaction`, use `get_transaction_weight(tx_size, declared_cycles)` in `check_tx_fee` instead of `tx_size` alone. The existing `DeclaredWrongCycles` rejection path already enforces that declared cycles match verified cycles, so this cannot be gamed.
+2. If no cycles are declared, apply a conservative cycle-based weight floor using `max_tx_verify_cycles * DEFAULT_BYTES_PER_CYCLES` to ensure the fee covers worst-case verification cost before running the verifier.
+
+## Proof of Concept
+
+1. Deploy a lock script that executes a tight loop consuming ~70M cycles but has a small binary (e.g., a few hundred bytes of RISC-V instructions).
+2. Create a UTXO locked by this script.
+3. Call `send_transaction` **without** declaring cycles, with a transaction spending that UTXO, paying exactly `1000 * 500 / 1000 = 500 shannons` fee (serialized size ~500 bytes).
+4. Observe: `check_tx_fee` passes (500 ≥ 500 shannons). The node runs `verify_rtx` consuming ~70M CKB-VM cycles. The transaction is admitted to the pool with effective fee rate ~42 shannons/KB.
+5. Repeat in a loop with pre-funded UTXOs. The verification worker threads are saturated; legitimate transactions queue behind the attacker's cycle-heavy verifications.
+
+### Citations
+
+**File:** tx-pool/src/util.rs (L42-45)
+```rust
+    // Theoretically we cannot use size as weight directly to calculate fee_rate,
+    // here min fee rate is used as a cheap check,
+    // so we will use size to calculate fee_rate directly
+    let min_fee = tx_pool.config.min_fee_rate.fee(tx_size as u64);
+```
+
+**File:** tx-pool/src/process.rs (L715-732)
+```rust
+        let (ret, snapshot) = self.pre_check(&tx).await;
+
+        let (tip_hash, rtx, status, fee, tx_size) = try_or_return_with_snapshot!(ret, snapshot);
+
+        let verify_cache = self.fetch_tx_verify_cache(&tx).await;
+        let max_cycles = declared_cycles.unwrap_or_else(|| self.consensus.max_block_cycles());
+        let tip_header = snapshot.tip_header();
+        let tx_env = Arc::new(status.with_env(tip_header));
+
+        let verified_ret = verify_rtx(
+            Arc::clone(&snapshot),
+            Arc::clone(&rtx),
+            tx_env,
+            &verify_cache,
+            max_cycles,
+            command_rx,
+        )
+        .await;
+```
+
+**File:** tx-pool/src/process.rs (L751-751)
+```rust
+        let entry = TxEntry::new(rtx, verified.cycles, fee, tx_size);
+```
+
+**File:** tx-pool/src/component/entry.rs (L114-118)
+```rust
+    /// Returns fee rate
+    pub fn fee_rate(&self) -> FeeRate {
+        let weight = get_transaction_weight(self.size, self.cycles);
+        FeeRate::calculate(self.fee, weight)
+    }
+```
+
+**File:** util/types/src/core/tx_pool.rs (L279-279)
+```rust
+pub const DEFAULT_BYTES_PER_CYCLES: f64 = 0.000_170_571_4_f64;
+```
+
+**File:** util/types/src/core/tx_pool.rs (L298-303)
+```rust
+pub fn get_transaction_weight(tx_size: usize, cycles: u64) -> u64 {
+    std::cmp::max(
+        tx_size as u64,
+        (cycles as f64 * DEFAULT_BYTES_PER_CYCLES) as u64,
+    )
+}
+```
+
+**File:** util/app-config/src/legacy/tx_pool.rs (L13-14)
+```rust
+// default max tx verify cycles
+const DEFAULT_MAX_TX_VERIFY_CYCLES: Cycle = TWO_IN_TWO_OUT_CYCLES * 20;
+```
