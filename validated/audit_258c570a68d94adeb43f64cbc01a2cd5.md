@@ -1,0 +1,187 @@
+Audit Report
+
+## Title
+Unbounded Work Amplification in `GetTransactionsProofProcess::execute` with No Rate Limiting — (`util/light-client-protocol-server/src/components/get_transactions_proof.rs`)
+
+## Summary
+Any peer connected on the light-client P2P protocol can send a `GetTransactionsProof` message containing up to 1000 transaction hashes, each from a different block. The handler reads the **full block body** from RocksDB for every distinct block, runs `CBMT::build_merkle_proof` over all transactions in each block, and calls `calc_witnesses_root()` — all with zero rate limiting. This creates an O(N × block_tx_count) CPU and I/O cost per request that a single attacker peer can sustain indefinitely, degrading or halting the node.
+
+## Finding Description
+
+**Dispatch path — no rate limiting:**
+`LightClientProtocol::received` dispatches directly to `try_process` with no per-peer or per-message-type throttle. [1](#0-0) 
+
+The only guard in the handler is a count check against `GET_TRANSACTIONS_PROOF_LIMIT = 1000`: [2](#0-1) [3](#0-2) 
+
+**Expensive inner loop per distinct block:**
+
+1. Full block read from RocksDB: [4](#0-3) 
+
+2. `CBMT::build_merkle_proof` iterates over every transaction hash in the block: [5](#0-4) 
+
+3. `calc_witnesses_root()` hashes every witness in the block: [6](#0-5) 
+
+4. Two additional DB reads per block (uncles + extension): [7](#0-6) 
+
+**Contrast with `GetBlocksProof`:** The analogous handler reads only block *headers* — a single lightweight DB key — with no CBMT or witnesses-root computation: [8](#0-7) 
+
+**Rate limiting exists elsewhere but not here:** `Relayer` defines a keyed `RateLimiter` type: [9](#0-8) 
+
+A grep for `rate_limit|RateLimiter|quota|per_second` returns **zero matches** in the entire `util/light-client-protocol-server/` tree, confirmed by search results above.
+
+## Impact Explanation
+
+A single attacker peer can send repeated `GetTransactionsProof` messages at line rate, each forcing up to 1000 full-block RocksDB reads, 1000 CBMT tree constructions, 1000 `calc_witnesses_root` hashing passes, and 2000 additional uncle/extension reads. Because the light-client protocol server shares the same RocksDB instance and CPU as the full node, sustained I/O and CPU saturation can degrade block processing and transaction relay on the full node itself, matching the allowed impact: **High — Vulnerabilities or bad designs which could cause CKB network congestion / node degradation with few costs.** The attacker requires only a standard P2P connection and publicly visible on-chain data.
+
+## Likelihood Explanation
+
+- Requires only a standard P2P connection — no PoW, no keys, no privileged role.
+- All required tx hashes are publicly visible on-chain via RPC.
+- No rate limiting, no per-peer quota, no connection cost beyond the initial handshake.
+- The light client protocol server is a production feature enabled on full nodes serving light clients.
+- The attack is trivially repeatable in a tight loop from a single peer.
+
+## Recommendation
+
+1. **Add per-peer rate limiting** to `LightClientProtocol::received`, mirroring the `governor::RateLimiter` pattern already used in `sync/src/relayer/mod.rs`, keyed by `(PeerIndex, message_item_id)`.
+2. **Cap the number of distinct blocks** a single `GetTransactionsProof` request may span (e.g., ≤ 10–20 blocks), independent of the tx-count limit, to bound the number of full-block DB reads per request.
+3. Consider replacing `snapshot.get_block()` with a targeted transaction fetch that avoids loading the entire block body when only a subset of transactions per block is needed.
+
+## Proof of Concept
+
+```python
+# Precondition: node has ≥1000 blocks, each with ≥1 transaction.
+# Collect one tx_hash from each of 1000 different blocks via RPC.
+tx_hashes = [get_block_by_number(n).transactions[0].hash for n in range(1, 1001)]
+
+# Craft GetTransactionsProof with last_hash = current tip
+msg = GetTransactionsProof {
+    last_hash: tip_hash,
+    tx_hashes: tx_hashes,   # 1000 entries, all from distinct large blocks
+}
+
+# Send in a tight loop from a single peer connection — no server-side throttle
+while True:
+    send_light_client_message(msg)
+    # Each iteration triggers:
+    # - 1000 get_block() RocksDB reads (full block bodies)
+    # - 1000 CBMT::build_merkle_proof() calls over all block txs
+    # - 1000 calc_witnesses_root() hashing passes
+    # - 2000 get_block_uncles/get_block_extension DB reads
+    # - gen_proof(1000 positions) MMR traversal
+```
+
+Monitor server CPU and RocksDB read latency; compare against an equivalent `GetBlocksProof` with 1000 block hashes (header-only reads) to quantify the amplification ratio. The difference in per-request cost directly demonstrates the work amplification.
+
+### Citations
+
+**File:** util/light-client-protocol-server/src/lib.rs (L55-92)
+```rust
+    async fn received(
+        &mut self,
+        nc: Arc<dyn CKBProtocolContext + Sync>,
+        peer: PeerIndex,
+        data: Bytes,
+    ) {
+        trace!("LightClient.received peer={}", peer);
+
+        let msg = match packed::LightClientMessageReader::from_slice(&data) {
+            Ok(msg) => msg.to_enum(),
+            _ => {
+                warn!(
+                    "LightClient.received a malformed message from Peer({})",
+                    peer
+                );
+                nc.ban_peer(
+                    peer,
+                    constant::BAD_MESSAGE_BAN_TIME,
+                    String::from("send us a malformed message"),
+                );
+                return;
+            }
+        };
+
+        let item_name = msg.item_name();
+        let status = self.try_process(&nc, peer, msg).await;
+        if let Some(ban_time) = status.should_ban() {
+            error!(
+                "process {} from {}; ban {:?} since result is {}",
+                item_name, peer, ban_time, status
+            );
+            nc.ban_peer(peer, ban_time, status.to_string());
+        } else if status.should_warn() {
+            warn!("process {} from {}; result is {}", item_name, peer, status);
+        } else if !status.is_ok() {
+            debug!("process {} from {}; result is {}", item_name, peer, status);
+        }
+    }
+```
+
+**File:** util/light-client-protocol-server/src/constant.rs (L7-7)
+```rust
+pub const GET_TRANSACTIONS_PROOF_LIMIT: usize = 1000;
+```
+
+**File:** util/light-client-protocol-server/src/components/get_transactions_proof.rs (L37-39)
+```rust
+        if self.message.tx_hashes().len() > constant::GET_TRANSACTIONS_PROOF_LIMIT {
+            return StatusCode::MalformedProtocolMessage.with_context("too many transactions");
+        }
+```
+
+**File:** util/light-client-protocol-server/src/components/get_transactions_proof.rs (L83-85)
+```rust
+            let block = snapshot
+                .get_block(&block_hash)
+                .expect("block should be in store");
+```
+
+**File:** util/light-client-protocol-server/src/components/get_transactions_proof.rs (L86-97)
+```rust
+            let merkle_proof = CBMT::build_merkle_proof(
+                &block
+                    .transactions()
+                    .iter()
+                    .map(|tx| tx.hash())
+                    .collect::<Vec<_>>(),
+                &txs_and_tx_indices
+                    .iter()
+                    .map(|(_, index)| *index as u32)
+                    .collect::<Vec<_>>(),
+            )
+            .expect("build proof with verified inputs should be OK");
+```
+
+**File:** util/light-client-protocol-server/src/components/get_transactions_proof.rs (L106-106)
+```rust
+                .witnesses_root(block.calc_witnesses_root())
+```
+
+**File:** util/light-client-protocol-server/src/components/get_transactions_proof.rs (L119-125)
+```rust
+            let uncles = snapshot
+                .get_block_uncles(&block_hash)
+                .expect("block uncles must be stored");
+            let extension = snapshot.get_block_extension(&block_hash);
+
+            uncles_hash.push(uncles.data().calc_uncles_hash());
+            extensions.push(packed::BytesOpt::new_builder().set(extension).build());
+```
+
+**File:** util/light-client-protocol-server/src/components/get_blocks_proof.rs (L82-86)
+```rust
+            let header = snapshot
+                .get_block_header(&block_hash)
+                .expect("header should be in store");
+            positions.push(leaf_index_to_pos(header.number()));
+            block_headers.push(header.data());
+```
+
+**File:** sync/src/relayer/mod.rs (L63-67)
+```rust
+type RateLimiter<T> = governor::RateLimiter<
+    T,
+    governor::state::keyed::HashMapStateStore<T>,
+    governor::clock::DefaultClock,
+>;
+```
