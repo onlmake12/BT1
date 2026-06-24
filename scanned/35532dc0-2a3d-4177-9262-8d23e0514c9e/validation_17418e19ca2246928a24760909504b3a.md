@@ -1,1 +1,0 @@
-Let me check the status module to verify whether `InternalError` triggers a peer ban.
