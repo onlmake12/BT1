@@ -1,1 +1,0 @@
-Let me check the `resumeble_process_tx` function to see if `after_process` is called for `pre_check` failures.
