@@ -1,0 +1,205 @@
+Audit Report
+
+## Title
+Unmetered O(N) `header_deps` Linear Scan in `load_header` Helper Enables Cycle-Disproportionate CPU Work — (`script/src/syscalls/load_header.rs`)
+
+## Summary
+The `load_header` private helper in `LoadHeader` performs a full linear scan of the transaction's `header_deps` list via `.any()` every time a header is fetched for a `CellDep` or `Input` source. This native-Rust scan executes entirely outside the CKB-VM cycle meter: cycles are charged only for bytes written back to VM memory by `store_data`/`store_u64`, not for the scan itself. An unprivileged attacker can craft a transaction with a large `header_deps` list and a tight-loop script calling `LOAD_HEADER_BY_FIELD` on a `CellDep`, forcing O(N × call_count) native CPU work on every validating node while the cycle meter reports a normal, within-limit count.
+
+## Finding Description
+In `script/src/syscalls/load_header.rs` at L56–70, `load_header` iterates the full `header_deps` list on every invocation:
+
+```rust
+fn load_header(&self, cell_meta: &CellMeta) -> Option<HeaderView> {
+    let block_hash = &cell_meta.transaction_info.as_ref()?.block_hash;
+    if self
+        .header_deps()        // returns full Byte32Vec
+        .into_iter()
+        .any(|hash| &hash == block_hash)   // O(N) scan, unmetered
+    {
+        self.sg_data.tx_info.data_loader.get_header(block_hash)
+    } else {
+        None
+    }
+}
+``` [1](#0-0) 
+
+This helper is called from `fetch_header` for `Source::Transaction(SourceEntry::Input)`, `Source::Transaction(SourceEntry::CellDep)`, and `Source::Group(SourceEntry::Input)` paths. [2](#0-1) 
+
+After the scan completes, the `ecall` dispatcher charges cycles only for bytes written to VM memory:
+
+```rust
+machine.add_cycles_no_checking(transferred_byte_cycles(len))?;
+``` [3](#0-2) 
+
+`transferred_byte_cycles` charges 1 cycle per 4 bytes: [4](#0-3) 
+
+For `LOAD_HEADER_BY_FIELD` returning a `u64` (8 bytes), the charge is exactly **2 cycles per call**, regardless of how many `header_deps` entries were scanned.
+
+No `MAX_HEADER_DEPS` constant or count cap exists anywhere in the codebase (confirmed by search). The only upper bound is the block byte limit:
+
+- `MAX_BLOCK_BYTES = TWO_IN_TWO_OUT_BYTES × TWO_IN_TWO_OUT_COUNT = 597 × 1,000 = 597,000 bytes`
+- Each header dep is 32 bytes → theoretical maximum ≈ 18,656 unique hashes per transaction [5](#0-4) 
+
+- `MAX_BLOCK_CYCLES = TWO_IN_TWO_OUT_CYCLES × TWO_IN_TWO_OUT_COUNT = 3,500,000 × 1,000 = 3,500,000,000` [6](#0-5) 
+
+The `Source::Transaction(SourceEntry::HeaderDep)` path is **not** affected — it uses a direct index lookup (`.get(index)`) and does not call `load_header`. [7](#0-6) 
+
+**Attack construction:**
+1. Attacker selects N ≈ 16,000 distinct on-chain block hashes `[H1, …, HN]`.
+2. Attacker picks a `cell_dep` confirmed in block `HN` (the last entry in `header_deps`).
+3. Attacker writes a script that loops calling `LOAD_HEADER_BY_FIELD` with `source = CellDep, index = 0`.
+4. Each call: native Rust `.any()` iterates all N hashes before finding the match. VM cost: 2 cycles. Host CPU cost: N × 32-byte comparisons (unmetered).
+5. With 2 cycles per call and a 3.5B cycle budget: ~1.75B calls possible. Each call performs 16,000 × 32 = 512,000 bytes of native comparison work. Total unmetered native work: **~896 trillion byte-comparisons per block**.
+
+## Impact Explanation
+Every validating node (full node, miner) must re-execute all scripts in every committed transaction. A single crafted transaction forces all nodes to perform hundreds of trillions of native 32-byte hash comparisons while the cycle meter reports a normal, within-limit cycle count. This creates a sustained, reproducible CPU spike on every node processing the block, severely degrading block validation throughput. Slow nodes may fall behind the chain tip; if validation latency approaches block production intervals, it can contribute to orphan rate increases. This matches the allowed impact: **"Vulnerabilities or bad designs which could cause CKB network congestion with few costs" (High, 10001–15000 points)**. [1](#0-0) 
+
+## Likelihood Explanation
+The attack requires no privileged access, no leaked keys, and no majority hashpower. Any user who can submit a transaction and pay the fee can trigger it. The construction is straightforward: select existing on-chain block hashes, order them so the matching hash is last, reference a cell confirmed in that block, and write a tight-loop script. The only cost to the attacker is the transaction fee and on-chain capacity for the script cell. The attack is repeatable across every block the transaction is included in. [8](#0-7) 
+
+## Recommendation
+**Option A (preferred):** Before the `.any()` scan, charge cycles proportional to the number of `header_deps` entries examined. A flat charge of `transferred_byte_cycles(header_deps.len() as u64 * 32)` per `load_header` call would meter the scan work accurately.
+
+**Option B:** Replace the linear scan with a pre-built `HashSet<Byte32>` constructed once per script group execution (amortized O(1) per lookup). The set construction cost should be charged once at setup time, proportional to `header_deps.len() * 32` bytes.
+
+**Option C:** Add a hard protocol cap on `header_deps` count (e.g., 64) to bound the worst-case scan length regardless of metering. [1](#0-0) 
+
+## Proof of Concept
+**Benchmark test plan:**
+1. Write a CKB integration test with two transactions: one with N=1 `header_dep`, one with N=16,000 `header_deps`.
+2. In both cases, `cell_deps[0]` is confirmed in the block whose hash is the last entry in `header_deps`.
+3. The script loops calling `LOAD_HEADER_BY_FIELD` (source=CellDep, index=0, field=EpochNumber) until cycle limit is reached.
+4. Measure wall-clock validation time for each transaction.
+5. **Expected result:** Wall-clock time scales linearly with N while `machine.cycles()` remains constant at the cycle limit — confirming the invariant violation.
+
+```rust
+// Pseudocode for the malicious script (RISC-V / CKB-VM)
+// Transaction: header_deps = [H1, H2, ..., H16000]
+// cell_deps[0] confirmed in block H16000
+loop {
+    // Host scans all 16000 header_deps before finding H16000
+    // VM charged: 2 cycles. Host CPU: 16000 × 32-byte comparisons (unmetered)
+    syscall(LOAD_HEADER_BY_FIELD, addr, size_addr, 0, SOURCE_CELL_DEP, EPOCH_NUMBER);
+}
+``` [9](#0-8)
+
+### Citations
+
+**File:** script/src/syscalls/load_header.rs (L56-70)
+```rust
+    fn load_header(&self, cell_meta: &CellMeta) -> Option<HeaderView> {
+        // `transaction_info` is absent for unconfirmed cells provided by the
+        // tx-pool (e.g. `PoolCell`). Treat them as missing instead of panicking,
+        // so the syscall surfaces `ITEM_MISSING` to the script VM.
+        let block_hash = &cell_meta.transaction_info.as_ref()?.block_hash;
+        if self
+            .header_deps()
+            .into_iter()
+            .any(|hash| &hash == block_hash)
+        {
+            self.sg_data.tx_info.data_loader.get_header(block_hash)
+        } else {
+            None
+        }
+    }
+```
+
+**File:** script/src/syscalls/load_header.rs (L72-110)
+```rust
+    fn fetch_header(&self, source: Source, index: usize) -> Result<HeaderView, u8> {
+        match source {
+            Source::Transaction(SourceEntry::Input) => self
+                .resolved_inputs()
+                .get(index)
+                .ok_or(INDEX_OUT_OF_BOUND)
+                .and_then(|cell_meta| self.load_header(cell_meta).ok_or(ITEM_MISSING)),
+            Source::Transaction(SourceEntry::Output) => Err(INDEX_OUT_OF_BOUND),
+            Source::Transaction(SourceEntry::CellDep) => self
+                .resolved_cell_deps()
+                .get(index)
+                .ok_or(INDEX_OUT_OF_BOUND)
+                .and_then(|cell_meta| self.load_header(cell_meta).ok_or(ITEM_MISSING)),
+            Source::Transaction(SourceEntry::HeaderDep) => self
+                .header_deps()
+                .get(index)
+                .ok_or(INDEX_OUT_OF_BOUND)
+                .and_then(|block_hash| {
+                    self.sg_data
+                        .tx_info
+                        .data_loader
+                        .get_header(&block_hash)
+                        .ok_or(ITEM_MISSING)
+                }),
+            Source::Group(SourceEntry::Input) => self
+                .group_inputs()
+                .get(index)
+                .ok_or(INDEX_OUT_OF_BOUND)
+                .and_then(|actual_index| {
+                    self.resolved_inputs()
+                        .get(*actual_index)
+                        .ok_or(INDEX_OUT_OF_BOUND)
+                })
+                .and_then(|cell_meta| self.load_header(cell_meta).ok_or(ITEM_MISSING)),
+            Source::Group(SourceEntry::Output) => Err(INDEX_OUT_OF_BOUND),
+            Source::Group(SourceEntry::CellDep) => Err(INDEX_OUT_OF_BOUND),
+            Source::Group(SourceEntry::HeaderDep) => Err(INDEX_OUT_OF_BOUND),
+        }
+    }
+```
+
+**File:** script/src/syscalls/load_header.rs (L153-178)
+```rust
+    fn ecall(&mut self, machine: &mut Mac) -> Result<bool, VMError> {
+        let load_by_field = match machine.registers()[A7].to_u64() {
+            LOAD_HEADER_SYSCALL_NUMBER => false,
+            LOAD_HEADER_BY_FIELD_SYSCALL_NUMBER => true,
+            _ => return Ok(false),
+        };
+
+        let index = machine.registers()[A3].to_u64();
+        let source = Source::parse_from_u64(machine.registers()[A4].to_u64())?;
+
+        let header = self.fetch_header(source, index as usize);
+        if let Err(err) = header {
+            machine.set_register(A0, Mac::REG::from_u8(err));
+            return Ok(true);
+        }
+        let header = header.unwrap();
+        let (return_code, len) = if load_by_field {
+            self.load_by_field(machine, &header)?
+        } else {
+            self.load_full(machine, &header)?
+        };
+
+        machine.add_cycles_no_checking(transferred_byte_cycles(len))?;
+        machine.set_register(A0, Mac::REG::from_u8(return_code));
+        Ok(true)
+    }
+```
+
+**File:** script/src/cost_model.rs (L10-12)
+```rust
+pub fn transferred_byte_cycles(bytes: u64) -> u64 {
+    // Compiler will optimize the divisin here to shifts.
+    bytes.div_ceil(BYTES_PER_CYCLE)
+```
+
+**File:** spec/src/consensus.rs (L70-84)
+```rust
+pub const TWO_IN_TWO_OUT_CYCLES: Cycle = 3_500_000;
+/// bytes of a typical two-in-two-out tx.
+pub const TWO_IN_TWO_OUT_BYTES: u64 = 597;
+/// count of two-in-two-out txs a block should capable to package.
+const TWO_IN_TWO_OUT_COUNT: u64 = 1_000;
+pub(crate) const DEFAULT_EPOCH_DURATION_TARGET: u64 = 4 * 60 * 60; // 4 hours, unit: second
+const MILLISECONDS_IN_A_SECOND: u64 = 1000;
+const MAX_EPOCH_LENGTH: u64 = DEFAULT_EPOCH_DURATION_TARGET / MIN_BLOCK_INTERVAL; // 1800
+const MIN_EPOCH_LENGTH: u64 = DEFAULT_EPOCH_DURATION_TARGET / MAX_BLOCK_INTERVAL; // 300
+pub(crate) const DEFAULT_PRIMARY_EPOCH_REWARD_HALVING_INTERVAL: EpochNumber =
+    4 * 365 * 24 * 60 * 60 / DEFAULT_EPOCH_DURATION_TARGET; // every 4 years
+
+/// The default maximum allowed size in bytes for a block
+pub const MAX_BLOCK_BYTES: u64 = TWO_IN_TWO_OUT_BYTES * TWO_IN_TWO_OUT_COUNT;
+pub(crate) const MAX_BLOCK_CYCLES: u64 = TWO_IN_TWO_OUT_CYCLES * TWO_IN_TWO_OUT_COUNT;
+```

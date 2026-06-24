@@ -1,0 +1,70 @@
+Audit Report
+
+## Title
+Unbounded HTTP Body Buffering in Miner Notify Listener Enables OOM via Unauthenticated Request — (`miner/src/client.rs`)
+
+## Summary
+The miner's block-template notify HTTP listener (`listen_block_template_notify`) accepts inbound TCP connections and dispatches each request to the `handle` async function, which calls `BodyExt::collect(req).await?.aggregate()` with no body-size limit. An attacker who can reach the listen socket can stream an arbitrarily large HTTP body, causing the miner process to exhaust host memory and be OOM-killed, halting the operator's block submissions until the miner is restarted.
+
+## Finding Description
+When `config.listen` is `Some(addr)`, `Client::spawn_background` spawns `listen_block_template_notify`, which binds a raw `TcpListener` and serves each accepted connection through hyper's `auto::Builder` with no per-connection body limit. Every accepted connection is dispatched to the module-level `handle` function at `miner/src/client.rs:358–369`:
+
+```rust
+async fn handle(
+    client: Client,
+    req: Request<hyper::body::Incoming>,
+) -> Result<Response<Empty<Bytes>>, Error> {
+    let body = BodyExt::collect(req).await?.aggregate();
+    ...
+}
+```
+
+`BodyExt::collect` reads all body frames from the incoming stream and accumulates them into a single in-memory buffer before `serde_json::from_reader` is called. There is no `http_body_util::Limited` wrapper, no `Content-Length` check, and no configurable `max_request_body_size` applied to this listener. A grep across all of `miner/src/` for any body-size guard returns zero matches. This is in direct contrast to the CKB node's own RPC server, which enforces a hard `max_request_body_size` (default 10 MiB) configured in `resource/ckb.toml:187` and declared in `util/app-config/src/configs/rpc.rs:40`.
+
+## Impact Explanation
+The concrete impact is an OOM-induced crash of the miner process. This maps to **Note (0–500 points): Any local command line crash**. The miner is a standalone binary separate from the CKB node; crashing it does not crash the CKB node, does not cause consensus deviation, does not affect the broader CKB network (other miners continue operating), and does not damage the CKB economy. The impact is limited to the operator's own mining operation being halted until the miner process is manually restarted. The claim's framing as a High-severity network-wide impact is not supported: a single miner going offline does not "easily crash the whole CKB network" or "easily cause network congestion."
+
+## Likelihood Explanation
+The notify listener is only active when the operator explicitly sets `config.listen` to `Some(addr)` — it is opt-in. If bound to `0.0.0.0:PORT`, any network-reachable host can exploit this with a single TCP connection and a streaming HTTP body. If bound to `127.0.0.1`, only local unprivileged processes on the same host can reach it. No authentication, no PoW, and no privileged access are required once the socket is reachable. The attack is repeatable on each miner restart.
+
+## Recommendation
+Wrap the incoming body with `http_body_util::Limited` before collecting, mirroring the guard used by the CKB node's RPC server:
+
+```rust
+use http_body_util::Limited;
+
+const MAX_BODY: u64 = 10 * 1024 * 1024; // 10 MiB
+let body = Limited::new(req, MAX_BODY)
+    .collect()
+    .await
+    .map_err(|_| "body too large")?
+    .aggregate();
+```
+
+Additionally, consider defaulting the notify listener bind address to `127.0.0.1` and documenting that exposing it to untrusted networks is unsafe.
+
+## Proof of Concept
+```python
+import socket
+
+HOST = "127.0.0.1"
+PORT = 8119  # miner notify listen port
+
+s = socket.create_connection((HOST, PORT))
+header = (
+    "POST / HTTP/1.1\r\n"
+    f"Host: {HOST}:{PORT}\r\n"
+    "Content-Type: application/json\r\n"
+    "Content-Length: 1073741824\r\n"  # 1 GiB
+    "\r\n"
+).encode()
+s.sendall(header)
+chunk = b"A" * 65536
+sent = 0
+while sent < 1073741824:
+    s.sendall(chunk)
+    sent += len(chunk)
+# Miner RSS grows to ~1 GB, then process is OOM-killed.
+```
+
+The miner process buffers the entire body in `BodyExt::collect` at `miner/src/client.rs:362` before attempting JSON deserialization, growing RSS proportionally until the host OOM-killer terminates it.
