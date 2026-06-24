@@ -1,0 +1,267 @@
+Audit Report
+
+## Title
+`BLOCK_INVALID` Header Bypass in `HeaderAcceptor::accept` Corrupts Sync State — (`sync/src/synchronizer/headers_process.rs`)
+
+## Summary
+
+`HeaderAcceptor::accept` fetches a header's `BlockStatus` and guards against re-processing with a `HEADER_VALID` check, but omits a corresponding `BLOCK_INVALID` guard. Because `BLOCK_INVALID` (`1 << 12`) and `HEADER_VALID` (`1`) share no bits, a header already marked `BLOCK_INVALID` bypasses the early return and falls through all three sub-checks to reach `insert_valid_header`, which inserts the invalid header into `header_map`, corrupts the peer's `best_known_header`, and potentially corrupts the global `shared_best_header`. The developers explicitly acknowledged this gap with a `// FIXME` comment at the exact location.
+
+## Finding Description
+
+**Bit-flag orthogonality:**
+
+`HEADER_VALID = 1` (bit 0) and `BLOCK_INVALID = 1 << 12 = 4096` (bit 12) share no bits. [1](#0-0) 
+
+`status.contains(BlockStatus::HEADER_VALID)` evaluates to `false` when `status == BLOCK_INVALID`, so the early-return branch at line 304 is not taken. [2](#0-1) 
+
+**The unguarded fall-through path in `accept()`:**
+
+1. `prev_block_check` — checks the **parent's** status (`parent_hash`), not header H itself. A header with a valid parent but an invalid body passes this check. [3](#0-2) 
+
+2. `non_contextual_check` — runs `HeaderVerifier::verify`, which only validates header-level fields (PoW, timestamp, epoch). A header whose body failed full block verification will pass this check again. [4](#0-3) 
+
+3. `version_check` — trivially passes for any well-formed header with `version == 0`. [5](#0-4) 
+
+4. `insert_valid_header` is called unconditionally if all three pass. [6](#0-5) 
+
+**How a header acquires `BLOCK_INVALID` while its header fields remain valid:**
+
+In `chain/src/verify.rs`, when full block verification fails (invalid transactions, script execution failure, etc.), the block is marked `BLOCK_INVALID`. The header itself already passed PoW/timestamp/version checks before the body was verified, so `non_contextual_check` will pass again on re-submission. [7](#0-6) 
+
+**What `insert_valid_header` does:**
+
+- Inserts the header into `header_map` (line 1129)
+- Calls `may_set_best_known_header` (line 1132) — updates the peer's best known header to the invalid chain tip
+- Calls `may_set_shared_best_header` (line 1140) — potentially updates the global shared best header to the invalid chain tip [8](#0-7) 
+
+**Why the bug is repeatable:**
+
+`insert_valid_header` does NOT call `insert_block_status`, so `block_status_map` retains `BLOCK_INVALID`. `get_block_status` checks `block_status_map` first and returns `BLOCK_INVALID` on every subsequent call, meaning the attacker can re-trigger `insert_valid_header` on every `SendHeaders` message containing H. [9](#0-8) 
+
+**The relay path (`CompactBlockProcess`) correctly handles this case as a reference:** [10](#0-9) 
+
+## Impact Explanation
+
+**High — Vulnerabilities or bad designs which could cause CKB network congestion with few costs.**
+
+A single valid-PoW/invalid-body block is sufficient to enable unlimited repeated exploitation. Once obtained, the attacker can send `SendHeaders` messages to any number of nodes indefinitely, with each message causing:
+
+- `header_map` pollution: the invalid header is inserted on every call, consuming memory and potentially serving as a parent anchor for further header chains.
+- `best_known_header` corruption per peer: the block fetcher schedules downloads of blocks building on an invalid chain, wasting bandwidth and processing resources across the network.
+- `shared_best_header` corruption: if the invalid chain's total difficulty exceeds the honest chain tip, the global sync anchor is corrupted, disrupting sync decisions for all connected peers.
+
+The one-time PoW cost amortizes to near-zero per attack across unlimited repetitions and unlimited target nodes, satisfying the "few costs" criterion for the High impact category.
+
+## Likelihood Explanation
+
+The attack requires only an unprivileged P2P connection. The attacker must:
+
+1. Craft a block with a valid header (valid PoW, timestamp, version) but an invalid body (e.g., a script that fails execution, or a transaction with an invalid signature).
+2. Submit it to the target node and wait for it to be marked `BLOCK_INVALID` via the chain verifier.
+3. Send a `SendHeaders` message containing that header hash.
+
+Step 1 requires valid PoW, which is the primary cost barrier. On mainnet this is significant but finite and one-time. On testnet or during IBD on a low-difficulty chain, this is trivial. The developer's own `// FIXME` comment confirms awareness of the gap and the absence of a fix. [11](#0-10) 
+
+## Recommendation
+
+Add an explicit `BLOCK_INVALID` early-return guard at the top of `accept()`, immediately before the `HEADER_VALID` check, resolving the `// FIXME`:
+
+```rust
+let status = self.active_chain.get_block_status(&self.header.hash());
+if status.contains(BlockStatus::BLOCK_INVALID) {
+    state.invalid(Some(ValidationError::InvalidParent)); // or a dedicated variant
+    return result;
+}
+if status.contains(BlockStatus::HEADER_VALID) { ... }
+```
+
+This mirrors the existing guard in `CompactBlockProcess` at line 259 and is consistent with the test already present for that path. [10](#0-9) 
+
+## Proof of Concept
+
+The existing test `test_in_block_status_map` in `sync/src/relayer/tests/compact_block_process.rs` demonstrates the correct behavior for the relay path and serves as a direct template: [12](#0-11) 
+
+The analogous test for `HeadersProcess` would:
+
+1. Pre-insert `BLOCK_INVALID` status for header hash H in `block_status_map` (simulating a prior failed full-block verification).
+2. Call `HeadersProcess::execute` with a `SendHeaders` message containing H, where H has a valid parent (not `BLOCK_INVALID`), valid PoW/timestamp, and version 0.
+3. Assert that `accept()` returns `ValidationState::Invalid` — **this assertion currently fails** (returns `Valid`).
+4. Assert that `header_map` does NOT contain H — **this assertion currently fails** (H is inserted).
+5. Assert that `may_set_best_known_header` was NOT called with H's index — **this assertion currently fails**.
+
+### Citations
+
+**File:** shared/src/block_status.rs (L11-16)
+```rust
+        const HEADER_VALID            =     1;
+        const BLOCK_RECEIVED          =     1 | (Self::HEADER_VALID.bits() << 1);
+        const BLOCK_STORED            =     1 | (Self::BLOCK_RECEIVED.bits() << 1);
+        const BLOCK_VALID             =     1 | (Self::BLOCK_STORED.bits() << 1);
+
+        const BLOCK_INVALID           =     1 << 12;
+```
+
+**File:** sync/src/synchronizer/headers_process.rs (L244-253)
+```rust
+    pub fn prev_block_check(&self, state: &mut ValidationResult) -> Result<(), ()> {
+        if self.active_chain.contains_block_status(
+            &self.header.data().raw().parent_hash(),
+            BlockStatus::BLOCK_INVALID,
+        ) {
+            state.invalid(Some(ValidationError::InvalidParent));
+            return Err(());
+        }
+        Ok(())
+    }
+```
+
+**File:** sync/src/synchronizer/headers_process.rs (L255-284)
+```rust
+    pub fn non_contextual_check(&self, state: &mut ValidationResult) -> Result<(), bool> {
+        self.verifier.verify(self.header).map_err(|error| {
+            debug!(
+                "HeadersProcess accepted {:?} error {:?}",
+                self.header.number(),
+                error
+            );
+            // UnknownParentError surfaces as BlockError(UnknownParent), not
+            // HeaderError.  Missing parent is a recoverable ordering/context
+            // issue, not proof that this header is invalid.
+            if error
+                .downcast_ref::<BlockError>()
+                .is_some_and(|e| e.kind() == BlockErrorKind::UnknownParent)
+            {
+                state.temporary_invalid(Some(ValidationError::Verify(error)));
+                false
+            } else if let Some(header_error) = error.downcast_ref::<HeaderError>() {
+                if header_error.is_too_new() {
+                    state.temporary_invalid(Some(ValidationError::Verify(error)));
+                    false
+                } else {
+                    state.invalid(Some(ValidationError::Verify(error)));
+                    true
+                }
+            } else {
+                state.invalid(Some(ValidationError::Verify(error)));
+                true
+            }
+        })
+    }
+```
+
+**File:** sync/src/synchronizer/headers_process.rs (L286-293)
+```rust
+    pub fn version_check(&self, state: &mut ValidationResult) -> Result<(), ()> {
+        if self.header.version() != 0 {
+            state.invalid(Some(ValidationError::Version));
+            Err(())
+        } else {
+            Ok(())
+        }
+    }
+```
+
+**File:** sync/src/synchronizer/headers_process.rs (L301-322)
+```rust
+        // FIXME If status == BLOCK_INVALID then return early. But which error
+        // type should we return?
+        let status = self.active_chain.get_block_status(&self.header.hash());
+        if status.contains(BlockStatus::HEADER_VALID) {
+            let header_index = sync_shared
+                .get_header_index_view(
+                    &self.header.hash(),
+                    status.contains(BlockStatus::BLOCK_STORED),
+                )
+                .unwrap_or_else(|| {
+                    panic!(
+                        "header {}-{} with HEADER_VALID should exist",
+                        self.header.number(),
+                        self.header.hash()
+                    )
+                })
+                .as_header_index();
+            state
+                .peers()
+                .may_set_best_known_header(self.peer, header_index);
+            return result;
+        }
+```
+
+**File:** sync/src/synchronizer/headers_process.rs (L356-357)
+```rust
+        sync_shared.insert_valid_header(self.peer, self.header);
+        result
+```
+
+**File:** chain/src/verify.rs (L175-178)
+```rust
+                if !is_internal_db_error(err) {
+                    self.shared
+                        .insert_block_status(block_hash.clone(), BlockStatus::BLOCK_INVALID);
+                } else {
+```
+
+**File:** sync/src/types/mod.rs (L1129-1140)
+```rust
+        self.shared.header_map().insert(header_view.clone());
+        self.state
+            .peers()
+            .may_set_best_known_header(peer, header_view.as_header_index());
+        if header_view.number().is_multiple_of(10000) {
+            info!(
+                "inserted valid header: header {}-{}",
+                header_view.number(),
+                header_view.hash()
+            );
+        }
+        self.state.may_set_shared_best_header(header_view);
+```
+
+**File:** shared/src/shared.rs (L425-445)
+```rust
+    pub fn get_block_status(&self, block_hash: &Byte32) -> BlockStatus {
+        match self.block_status_map().get(block_hash) {
+            Some(status_ref) => *status_ref.value(),
+            None => {
+                if self.header_map().contains_key(block_hash) {
+                    BlockStatus::HEADER_VALID
+                } else {
+                    let verified = self
+                        .snapshot()
+                        .get_block_ext(block_hash)
+                        .map(|block_ext| block_ext.verified);
+                    match verified {
+                        None => BlockStatus::UNKNOWN,
+                        Some(None) => BlockStatus::BLOCK_STORED,
+                        Some(Some(true)) => BlockStatus::BLOCK_VALID,
+                        Some(Some(false)) => BlockStatus::BLOCK_INVALID,
+                    }
+                }
+            }
+        }
+    }
+```
+
+**File:** sync/src/relayer/compact_block_process.rs (L259-261)
+```rust
+    } else if status.contains(BlockStatus::BLOCK_INVALID) {
+        return StatusCode::BlockIsInvalid.with_context(block_hash);
+    }
+```
+
+**File:** sync/src/relayer/tests/compact_block_process.rs (L60-71)
+```rust
+    // BLOCK_INVALID in block_status_map
+    {
+        relayer
+            .shared
+            .shared()
+            .insert_block_status(block.header().hash(), BlockStatus::BLOCK_INVALID);
+    }
+
+    assert_eq!(
+        rt.block_on(compact_block_process.execute()),
+        StatusCode::BlockIsInvalid.into(),
+    );
+```

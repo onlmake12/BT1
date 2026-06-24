@@ -1,0 +1,171 @@
+Audit Report
+
+## Title
+Unbounded O(k·log N) DB Read Amplification via Crafted `GetLastStateProof` Message — (`util/light-client-protocol-server/src/components/get_last_state_proof.rs`)
+
+## Summary
+The sole input guard in `GetLastStateProofProcess::execute` bounds only the *count* of sampled items, not the DB work each item induces. A crafted message with 999 difficulty values and `last_n_blocks=0` passes the guard and triggers three O(log N) DB-read phases per item — binary-search difficulty resolution, per-block MMR root computation, and MMR proof generation — totalling O(k·log N) RocksDB reads per request with no per-peer rate limit anywhere in the handler path.
+
+## Finding Description
+
+**Unconditional dispatch.** `try_process` in `lib.rs` routes any `GetLastStateProof` message directly to `GetLastStateProofProcess::execute()` for any connected peer without authentication or prior checks. [1](#0-0) 
+
+**Insufficient guard.** The only size check is:
+```rust
+difficulties.len() + (last_n_blocks as usize) * 2 > GET_LAST_STATE_PROOF_LIMIT  // 1000
+```
+With `difficulties` containing 999 entries and `last_n_blocks=0`, this evaluates to `999 > 1000` → false, so execution continues unchecked. [2](#0-1) [3](#0-2) 
+
+**Phase 1 — binary-search difficulty resolution.** `get_block_numbers_via_difficulties` iterates over all 999 difficulties and calls `get_first_block_total_difficulty_is_not_less_than` for each, which performs a binary search over the block range. Each binary-search step calls `get_block_total_difficulty`, issuing two DB reads (`get_block_hash` + `get_block_ext`). Cost: O(log N) DB reads per difficulty, O(999·log N) total. [4](#0-3) [5](#0-4) 
+
+**Phase 2 — per-block MMR root computation.** `complete_headers` calls `self.snapshot.chain_root_mmr(*number - 1)` and then `mmr.get_root()` for each of the 999 resolved block numbers. `chain_root_mmr(n)` constructs an MMR of size `leaf_index_to_mmr_size(n)` backed by `&Snapshot`, whose `get_elem` issues one DB read per MMR node. An MMR with N leaves has O(log N) peak nodes, so each `get_root()` costs O(log N) DB reads. Total: O(999·log N). [6](#0-5) [7](#0-6) 
+
+**Phase 3 — MMR proof generation.** `reply_proof` calls `mmr.gen_proof(items_positions)` with all 999 positions. Generating a Merkle proof for k positions in an MMR of N leaves reads O(k·log N) sibling nodes. [8](#0-7) 
+
+**No rate limiting.** A search across the entire `util/light-client-protocol-server/` directory finds zero instances of per-peer or per-message rate limiting in the `GetLastStateProof` handler path. The handler runs on the async executor without back-pressure.
+
+**Aggregate.** Total DB reads per request ≈ 3 × 999 × log₂(N). On CKB mainnet (~13 M blocks, log₂ ≈ 24): ~72,000 RocksDB point-reads per single crafted request.
+
+## Impact Explanation
+A single crafted request causes ~72,000 RocksDB point-reads. An attacker maintaining several connections and pipelining requests multiplies this linearly. Because the handler runs on the async executor without back-pressure or rate limiting, sustained flooding saturates disk I/O and stalls block processing on the targeted node, rendering it unable to participate in consensus. This matches the **High** impact: **"Vulnerabilities which could easily crash a CKB node"** (10001–15000 points).
+
+## Likelihood Explanation
+- No authentication or privilege is required; any P2P peer qualifies.
+- The message is valid by protocol; no PoW or consensus check applies.
+- Valid difficulty values are observable from public chain data; the tip hash is broadcast by the node itself.
+- No rate limiting exists anywhere in the handler path (confirmed by code search).
+- The attack is repeatable and pipelinable from a single connection.
+
+## Recommendation
+1. **Bound DB work, not just count.** Replace or supplement the count check with a budget on estimated DB operations, e.g., `difficulties.len() * ceil_log2(chain_height) ≤ WORK_BUDGET`.
+2. **Cache `get_root()` results.** The 999 `chain_root_mmr(n-1).get_root()` calls are independent; a request-scoped `HashMap<BlockNumber, HeaderDigest>` cache reduces Phase 2 to O(999) reads.
+3. **Add per-peer request rate limiting** in `try_process` for `GetLastStateProof` (e.g., token-bucket per `PeerIndex`).
+4. **Deduplicate and sort positions** before calling `gen_proof` to maximise MMR node sharing and reduce Phase 3 reads.
+
+## Proof of Concept
+```
+# Two nodes: node-A with 1,000 blocks, node-B with 13,000,000 blocks.
+# Craft a GetLastStateProof message:
+#   difficulties = [d1, d2, ..., d999]  (999 monotonically-increasing total-difficulty values
+#                                         spanning the full chain of each node)
+#   last_n_blocks = 0
+#   last_hash     = current tip hash of the target node
+#   difficulty_boundary = tip total difficulty + 1
+
+# Send the message to both nodes; measure wall-clock latency and RocksDB
+# read counters (via Prometheus `store_get_*` metrics or `perf stat`).
+# Expected: latency on node-B is ~log2(13M)/log2(1000) ≈ 2.5× higher than node-A,
+# confirming O(log N) amplification per item.
+
+# Repeat at 10 req/s from a single peer on node-B; observe IO wait % and
+# block-processing lag via `ckb_chain_tip` metric stalling.
+```
+
+### Citations
+
+**File:** util/light-client-protocol-server/src/lib.rs (L108-112)
+```rust
+            packed::LightClientMessageUnionReader::GetLastStateProof(reader) => {
+                components::GetLastStateProofProcess::new(reader, self, peer_index, nc)
+                    .execute()
+                    .await
+            }
+```
+
+**File:** util/light-client-protocol-server/src/lib.rs (L207-217)
+```rust
+            let proof = if items_positions.is_empty() {
+                Default::default()
+            } else {
+                match mmr.gen_proof(items_positions) {
+                    Ok(proof) => proof.proof_items().to_owned(),
+                    Err(err) => {
+                        let errmsg = format!("failed to generate a proof since {err:?}");
+                        return StatusCode::InternalError.with_context(errmsg);
+                    }
+                }
+            };
+```
+
+**File:** util/light-client-protocol-server/src/components/get_last_state_proof.rs (L73-103)
+```rust
+    fn get_block_numbers_via_difficulties(
+        &self,
+        mut start_block_number: BlockNumber,
+        end_block_number: BlockNumber,
+        difficulties: &[U256],
+    ) -> Result<Vec<BlockNumber>, String> {
+        let mut numbers = Vec::new();
+        let mut current_difficulty = U256::zero();
+        for difficulty in difficulties {
+            if current_difficulty >= *difficulty {
+                continue;
+            }
+            if let Some((num, diff)) = self.get_first_block_total_difficulty_is_not_less_than(
+                start_block_number,
+                end_block_number,
+                difficulty,
+            ) {
+                if num > start_block_number {
+                    start_block_number = num - 1;
+                }
+                numbers.push(num);
+                current_difficulty = diff;
+            } else {
+                let errmsg = format!(
+                    "the difficulty ({difficulty:#x}) is not in the block range [{start_block_number}, {end_block_number})"
+                );
+                return Err(errmsg);
+            }
+        }
+        Ok(numbers)
+    }
+```
+
+**File:** util/light-client-protocol-server/src/components/get_last_state_proof.rs (L110-116)
+```rust
+impl<'a> FindBlocksViaDifficulties for BlockSampler<'a> {
+    fn get_block_total_difficulty(&self, number: BlockNumber) -> Option<U256> {
+        self.snapshot
+            .get_block_hash(number)
+            .and_then(|block_hash| self.snapshot.get_block_ext(&block_hash))
+            .map(|block_ext| block_ext.total_difficulty)
+    }
+```
+
+**File:** util/light-client-protocol-server/src/components/get_last_state_proof.rs (L153-163)
+```rust
+                    let mmr = self.snapshot.chain_root_mmr(*number - 1);
+                    match mmr.get_root() {
+                        Ok(root) => root,
+                        Err(err) => {
+                            let errmsg = format!(
+                                "failed to generate a root for block#{number} since {err:?}"
+                            );
+                            return Err(errmsg);
+                        }
+                    }
+                };
+```
+
+**File:** util/light-client-protocol-server/src/components/get_last_state_proof.rs (L201-205)
+```rust
+        if self.message.difficulties().len() + (last_n_blocks as usize) * 2
+            > constant::GET_LAST_STATE_PROOF_LIMIT
+        {
+            return StatusCode::MalformedProtocolMessage.with_context("too many samples");
+        }
+```
+
+**File:** util/light-client-protocol-server/src/constant.rs (L6-6)
+```rust
+pub const GET_LAST_STATE_PROOF_LIMIT: usize = 1000;
+```
+
+**File:** util/snapshot/src/lib.rs (L181-184)
+```rust
+    pub fn chain_root_mmr(&self, block_number: BlockNumber) -> ChainRootMMR<&Self> {
+        let mmr_size = leaf_index_to_mmr_size(block_number);
+        ChainRootMMR::new(mmr_size, self)
+    }
+```

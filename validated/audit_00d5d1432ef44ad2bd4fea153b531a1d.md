@@ -1,0 +1,157 @@
+All five code claims check out against the actual source:
+
+1. `clear_expired_alerts()` (notifier.rs L135–144) uses `retain` with no `cancel_filter.put()` call for removed IDs. [1](#0-0) 
+
+2. `has_received()` (notifier.rs L147–149) checks only `received_alerts` and `cancel_filter`. [2](#0-1) 
+
+3. P2P `received()` (alert_relayer.rs L147–178) has no `notice_until` check — only `has_received()` and `verify_signatures()`. [3](#0-2) 
+
+4. RPC `send_alert` (alert.rs L104–110) does check `notice_until`. [4](#0-3) 
+
+5. `cancel_filter` is `LruCache<u32, ()>` capped at 128. [5](#0-4) 
+
+---
+
+Audit Report
+
+## Title
+Expired Alert Replay via P2P — `clear_expired_alerts()` Drops IDs Without Recording in `cancel_filter` - (File: util/network-alert/src/notifier.rs)
+
+## Summary
+`Notifier::clear_expired_alerts()` removes expired alert IDs from `received_alerts` without inserting them into `cancel_filter`, so `has_received()` returns `false` for those IDs after expiry. Any P2P peer that saved a previously broadcast alert can replay it after its `notice_until` passes: the replayed alert passes both the dedup check and signature verification, gets re-broadcast to all connected peers, and re-triggers `notify_network_alert` on every receiving node, propagating network-wide.
+
+## Finding Description
+`clear_expired_alerts()` (notifier.rs L135–144) uses `retain` to drop entries from `received_alerts` and `noticed_alerts` based on `notice_until`, but never calls `self.cancel_filter.put(id, ())` for the removed IDs. After expiry, `has_received(id)` (L147–149) returns `false` because the ID is absent from both `received_alerts` and `cancel_filter`.
+
+In `AlertRelayer::received()` (alert_relayer.rs L147–178), the only dedup guard is `has_received()` at L147. There is no `notice_until` check in the P2P handler — contrast with RPC `send_alert`, which rejects expired alerts at rpc/src/module/alert.rs L106–110. A replayed expired alert therefore:
+1. Passes `has_received()` → `false` (ID was cleared from both maps)
+2. Passes `verifier.verify_signatures()` (secp256k1 signatures over the alert hash remain cryptographically valid)
+3. Is broadcast to all connected peers via `quick_filter_broadcast` (L171–176)
+4. Causes `notifier.add(&alert)` (L178) to call `notify_controller.notify_network_alert(alert.clone())` (notifier.rs L115) and re-insert the alert into `noticed_alerts` (L116)
+
+Each receiving peer independently cleared its own `received_alerts` at expiry, so each peer also accepts and re-broadcasts the replayed alert, causing network-wide propagation. The `known_lists` LruCache (size 64) only prevents re-sending to currently-connected peers already in the cache; it does not stop propagation across the broader network.
+
+Additionally, `cancel_filter` is an `LruCache<u32, ()>` capped at 128 entries (L9, L14, L38), so even explicitly cancelled alert IDs can be evicted and replayed after 128 subsequent cancellations.
+
+## Impact Explanation
+This matches **High — Vulnerabilities or bad designs which could cause CKB network congestion with few costs**. A single attacker with one P2P connection can trigger network-wide re-broadcast of a stale alert with zero cryptographic cost. Every node that receives the replay re-broadcasts it to its peers, and every node with `network_alert_notify_script` configured re-executes that script. The alert also re-appears in `get_blockchain_info()` responses, misleading operators. The attack is repeatable indefinitely — each expiry cycle opens a new replay window — and requires no key material or privileged access.
+
+## Likelihood Explanation
+Trivially high. Preconditions: (1) connect as a P2P peer — no authentication required on the CKB P2P network; (2) record any alert bytes relayed on the network — alerts are pushed to all peers on connection via `connected()` (alert_relayer.rs L87–94); (3) wait for `notice_until` to pass; (4) re-send the saved bytes. No cryptographic attack, no privileged access, no victim mistake required. The replay window opens automatically and permanently after each alert expires.
+
+## Recommendation
+In `clear_expired_alerts()`, insert expired IDs into `cancel_filter` before removing them from `received_alerts`:
+
+```rust
+pub fn clear_expired_alerts(&mut self, now: u64) {
+    let expired_ids: Vec<u32> = self.received_alerts
+        .iter()
+        .filter_map(|(id, alert)| {
+            let notice_until: u64 = alert.raw().notice_until().into();
+            if notice_until <= now { Some(*id) } else { None }
+        })
+        .collect();
+    for id in expired_ids {
+        self.cancel_filter.put(id, ());
+        self.received_alerts.remove(&id);
+    }
+    self.noticed_alerts.retain(|a| {
+        let notice_until: u64 = a.raw().notice_until().into();
+        notice_until > now
+    });
+}
+```
+
+Additionally, replace `cancel_filter: LruCache<u32, ()>` with an unbounded `HashSet<u32>` or significantly increase `CANCEL_FILTER_SIZE` beyond 128, since the current LRU bound allows replay of old cancelled alert IDs after sufficient evictions. As a defense-in-depth measure, add a `notice_until` expiry check in `AlertRelayer::received()` mirroring the existing check in `send_alert`.
+
+## Proof of Concept
+1. Connect to a CKB node as a P2P peer using the Tentacle protocol.
+2. On connection, the node's `connected()` handler pushes all current `received_alerts` to the new peer (alert_relayer.rs L88–94). Record the raw bytes of any alert message received.
+3. Wait until the alert's `notice_until` timestamp passes and confirm via `get_blockchain_info()` that `alerts` is empty (alert has been cleared by `clear_expired_alerts()`).
+4. Re-send the saved raw alert bytes to the node over the Alert P2P protocol.
+5. Observe: `has_received()` returns `false` (ID absent from both `received_alerts` and `cancel_filter`); signature verification passes; the node re-broadcasts to all connected peers and calls `notify_network_alert`; `get_blockchain_info()` again shows the alert in `alerts`.
+6. Each peer that receives the re-broadcast repeats steps 4–5, confirming network-wide propagation.
+7. Repeat from step 4 after the next expiry cycle to confirm the window reopens indefinitely.
+
+### Citations
+
+**File:** util/network-alert/src/notifier.rs (L9-14)
+```rust
+const CANCEL_FILTER_SIZE: usize = 128;
+
+/// Notify other module
+pub struct Notifier {
+    /// cancelled alerts
+    cancel_filter: LruCache<u32, ()>,
+```
+
+**File:** util/network-alert/src/notifier.rs (L135-144)
+```rust
+    pub fn clear_expired_alerts(&mut self, now: u64) {
+        self.received_alerts.retain(|_id, alert| {
+            let notice_until: u64 = alert.raw().notice_until().into();
+            notice_until > now
+        });
+        self.noticed_alerts.retain(|a| {
+            let notice_until: u64 = a.raw().notice_until().into();
+            notice_until > now
+        });
+    }
+```
+
+**File:** util/network-alert/src/notifier.rs (L147-149)
+```rust
+    pub fn has_received(&self, id: u32) -> bool {
+        self.received_alerts.contains_key(&id) || self.cancel_filter.contains(&id)
+    }
+```
+
+**File:** util/network-alert/src/alert_relayer.rs (L144-178)
+```rust
+        let alert_id = alert.as_reader().raw().id().into();
+        trace!("ReceiveD alert {} from peer {}", alert_id, peer_index);
+        // ignore alert
+        if self.notifier.lock().has_received(alert_id) {
+            return;
+        }
+        // verify
+        if let Err(err) = self.verifier.verify_signatures(&alert) {
+            debug!(
+                "An alert from peer {} with invalid signatures, error {:?}",
+                peer_index, err
+            );
+            nc.ban_peer(
+                peer_index,
+                BAD_MESSAGE_BAN_TIME,
+                String::from("send us an alert with invalid signatures"),
+            );
+            return;
+        }
+        // mark sender as known
+        self.mark_as_known(peer_index, alert_id);
+        // broadcast message
+        let selected_peers: Vec<PeerIndex> = nc
+            .connected_peers()
+            .into_iter()
+            .filter(|peer| self.mark_as_known(*peer, alert_id))
+            .collect();
+        if let Err(err) = nc.quick_filter_broadcast(
+            TargetSession::Multi(Box::new(selected_peers.into_iter())),
+            data,
+        ) {
+            debug!("alert broadcast error: {:?}", err);
+        }
+        // add to received alerts
+        self.notifier.lock().add(&alert);
+```
+
+**File:** rpc/src/module/alert.rs (L104-110)
+```rust
+        let now_ms = ckb_systemtime::unix_time_as_millis();
+        let notice_until: u64 = alert.raw().notice_until().into();
+        if notice_until < now_ms {
+            return Err(RPCError::invalid_params(format!(
+                "Expected `params[0].notice_until` in the future (> {now_ms}), got {notice_until}",
+            )));
+        }
+```
