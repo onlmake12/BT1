@@ -1,0 +1,286 @@
+Audit Report
+
+## Title
+Stale Descendant Accounting in `remove_entry_and_descendants` Permanently Inflates Ancestor `evict_key`, Enabling Pool-Eviction Bypass — (File: `tx-pool/src/component/pool_map.rs`)
+
+## Summary
+
+`remove_entry_and_descendants` pre-strips all link records for every entry being removed before calling `remove_entry` on each. Because `remove_entry` calls `update_ancestors_index_key`, which resolves ancestors through the now-empty link graph, the `sub_descendant_weight` call and `evict_key` recomputation never fire for any surviving ancestor. This permanently inflates the ancestor's `descendants_fee`, `descendants_size`, `descendants_cycles`, and `descendants_count`, raising its `evict_key` and preventing it from being evicted under pool pressure.
+
+## Finding Description
+
+`remove_entry_and_descendants` collects the target and all its descendants, then strips all their link records in a first pass, and only then calls `remove_entry` for each: [1](#0-0) 
+
+`remove_entry_links` removes the entry from its parents' children sets, removes all parents from the entry's parents set, and deletes the entry's own link record from `self.links.inner`: [2](#0-1) 
+
+When `remove_entry` is subsequently called, it invokes `update_ancestors_index_key(&entry.inner, EntryOp::Remove)`: [3](#0-2) 
+
+`update_ancestors_index_key` resolves ancestors by calling `self.links.calc_ancestors(&child.proposal_short_id())`. Because `remove_entry_links` already removed the entry from `self.links.inner`, `calc_relative_ids` finds no entry and returns an empty set: [4](#0-3) 
+
+The `modify_by_id` loop that calls `sub_descendant_weight` and recomputes `evict_key` therefore never executes for any ancestor that is **not** in the removed set: [5](#0-4) 
+
+The surviving ancestor's `descendants_fee`, `descendants_size`, `descendants_cycles`, and `descendants_count` all remain at their pre-removal values. When a replacement transaction TxC is subsequently added, `record_entry_descendants` calls `update_ancestors_index_key(TxC, Add)`, which **adds** TxC's weight to the already-inflated ancestor entry: [6](#0-5) 
+
+The `EvictKey` is computed from `descendants_fee` and `descendants_size`/`descendants_cycles`, so the inflated values directly raise the ancestor's eviction priority: [7](#0-6) 
+
+The comment in `remove_entry_and_descendants` (`// update links state for remove, so that we won't update_descendants_index_key in remove_entry`) confirms the intent was only to suppress the `update_descendants_index_key` call, but the side effect of also suppressing `update_ancestors_index_key` was not addressed.
+
+## Impact Explanation
+
+The `evict_key` drives pool eviction ordering. `next_evict_entry` iterates `iter_by_evict_key()` to find the lowest-priority transaction to drop when the pool is full: [8](#0-7) 
+
+An inflated `descendants_feerate` raises the `fee_rate` field of `EvictKey`, pushing the ancestor toward the "do not evict" end of the ordering. A low-fee transaction with an artificially high `evict_key` survives pool-full eviction rounds that should have removed it, causing legitimate higher-fee transactions to be rejected with `Reject::Full`. By repeating the attack across many transactions, an attacker can occupy a significant fraction of pool capacity with low-fee transactions that cannot be evicted, causing sustained CKB network congestion. This matches the **High** impact class: *Vulnerabilities or bad designs which could cause CKB network congestion with few costs* (10001–15000 points).
+
+## Likelihood Explanation
+
+`remove_entry_and_descendants` is called on every conflict resolution path reachable by any unprivileged RPC or P2P transaction sender: [9](#0-8) 
+
+No special privilege is required. The attacker only needs to submit standard transactions via the public P2P or RPC interface. The cost per iteration is the incremental RBF fee bump (a small `ε`), while the benefit is a permanently inflated `descendants_fee` that accumulates across iterations without bound. The attack is repeatable, deterministic, and requires no victim interaction.
+
+## Recommendation
+
+Update surviving ancestors **before** stripping link records. The correct approach is to call `update_ancestors_index_key` for each entry while the link graph is still intact, then strip links, then call `remove_entry` (which should skip the ancestor update since links are already gone):
+
+```rust
+pub(crate) fn remove_entry_and_descendants(&mut self, id: &ProposalShortId) -> Vec<TxEntry> {
+    let mut removed_ids = vec![id.to_owned()];
+    removed_ids.extend(self.calc_descendants(id));
+
+    // 1. Update ancestors of every removed entry WHILE links are still intact.
+    for rid in &removed_ids {
+        if let Some(entry) = self.entries.get_by_id(rid).map(|e| e.inner.clone()) {
+            self.update_ancestors_index_key(&entry, EntryOp::Remove);
+        }
+    }
+
+    // 2. Now strip links (prevents double-update inside remove_entry).
+    for rid in &removed_ids {
+        self.remove_entry_links(rid);
+    }
+
+    removed_ids
+        .iter()
+        .filter_map(|rid| self.remove_entry(rid))
+        .collect()
+}
+```
+
+This ensures every ancestor that remains in the pool has its `descendants_fee/size/cycles/count` and `evict_key` correctly decremented before the link graph is torn down.
+
+## Proof of Concept
+
+```
+Initial pool:
+  TxA  fee=1, size=100   (no parents)
+  TxB  fee=1000, size=100 (parent: TxA)
+
+TxA.descendants_fee   = 1001
+TxA.evict_key.fee_rate = high (driven by TxB)
+
+--- Attacker submits TxC (RBF of TxB, fee=1001) ---
+
+resolve_conflict(TxB):
+  remove_entry_links(TxB)   ← TxA no longer knows TxB is its child
+  remove_entry(TxB):
+    update_ancestors_index_key(TxB, Remove)
+      calc_ancestors(TxB) = {}   ← links gone, returns empty
+      → TxA.descendants_fee NOT decremented   ← BUG
+
+add_entry(TxC):
+  update_ancestors_index_key(TxC, Add)
+    calc_ancestors(TxC) = {TxA}
+    TxA.descendants_fee += 1001
+    TxA.evict_key recomputed with inflated value
+
+Final state:
+  TxA.descendants_fee = 1001 (stale TxB) + 1001 (TxC) = 2002
+  Correct value:        1 (TxA) + 1001 (TxC) = 1002
+
+Repeat N times → TxA.descendants_fee grows without bound.
+TxA is never evicted regardless of pool pressure.
+```
+
+A unit test can be written against `PoolMap` directly: add TxA and TxB (child of TxA), call `remove_entry_and_descendants` on TxB's id, then assert that `pool_map.get(&TxA_id).unwrap().descendants_fee == TxA.fee`. Without the fix, the assertion fails because `descendants_fee` still includes TxB's fee.
+
+### Citations
+
+**File:** tx-pool/src/component/pool_map.rs (L235-249)
+```rust
+    pub(crate) fn remove_entry(&mut self, id: &ProposalShortId) -> Option<TxEntry> {
+        self.entries.remove_by_id(id).map(|entry| {
+            debug!(
+                "remove entry {} from status: {:?}",
+                entry.inner.transaction().hash(),
+                entry.status
+            );
+            self.update_ancestors_index_key(&entry.inner, EntryOp::Remove);
+            self.update_descendants_index_key(&entry.inner, EntryOp::Remove);
+            self.remove_entry_edges(&entry.inner);
+            self.remove_entry_links(id);
+            self.track_entry_statics(Some(entry.status), None);
+            self.update_stat_for_remove_tx(entry.inner.size, entry.inner.cycles);
+            entry.inner
+        })
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L252-265)
+```rust
+    pub(crate) fn remove_entry_and_descendants(&mut self, id: &ProposalShortId) -> Vec<TxEntry> {
+        let mut removed_ids = vec![id.to_owned()];
+        removed_ids.extend(self.calc_descendants(id));
+
+        // update links state for remove, so that we won't update_descendants_index_key in remove_entry
+        for id in &removed_ids {
+            self.remove_entry_links(id);
+        }
+
+        removed_ids
+            .iter()
+            .filter_map(|id| self.remove_entry(id))
+            .collect()
+    }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L305-332)
+```rust
+    pub(crate) fn resolve_conflict(&mut self, tx: &TransactionView) -> Vec<ConflictEntry> {
+        let mut conflicts = Vec::new();
+
+        for i in tx.input_pts_iter() {
+            if let Some(id) = self.edges.remove_input(&i) {
+                let entries = self.remove_entry_and_descendants(&id);
+                if !entries.is_empty() {
+                    let reject = Reject::Resolve(OutPointError::Dead(i.clone()));
+                    let rejects = std::iter::repeat_n(reject, entries.len());
+                    conflicts.extend(entries.into_iter().zip(rejects));
+                }
+            }
+
+            // deps consumed
+            if let Some(x) = self.edges.remove_deps(&i) {
+                for id in x {
+                    let entries = self.remove_entry_and_descendants(&id);
+                    if !entries.is_empty() {
+                        let reject = Reject::Resolve(OutPointError::Dead(i.clone()));
+                        let rejects = std::iter::repeat_n(reject, entries.len());
+                        conflicts.extend(entries.into_iter().zip(rejects));
+                    }
+                }
+            }
+        }
+
+        conflicts
+    }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L380-385)
+```rust
+    pub(crate) fn next_evict_entry(&self, status: Status) -> Option<ProposalShortId> {
+        self.entries
+            .iter_by_evict_key()
+            .find(move |entry| entry.status == status)
+            .map(|entry| entry.id.clone())
+    }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L418-430)
+```rust
+    fn remove_entry_links(&mut self, id: &ProposalShortId) {
+        if let Some(parents) = self.links.get_parents(id).cloned() {
+            for parent in parents {
+                self.links.remove_child(&parent, id);
+            }
+        }
+        if let Some(children) = self.links.get_children(id).cloned() {
+            for child in children {
+                self.links.remove_parent(&child, id);
+            }
+        }
+        self.links.remove(id);
+    }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L432-445)
+```rust
+    fn update_ancestors_index_key(&mut self, child: &TxEntry, op: EntryOp) {
+        let ancestors: HashSet<ProposalShortId> =
+            self.links.calc_ancestors(&child.proposal_short_id());
+        for anc_id in &ancestors {
+            // update parent score
+            self.entries.modify_by_id(anc_id, |e| {
+                match op {
+                    EntryOp::Remove => e.inner.sub_descendant_weight(child),
+                    EntryOp::Add => e.inner.add_descendant_weight(child),
+                };
+                e.evict_key = e.inner.as_evict_key();
+            });
+        }
+    }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L487-513)
+```rust
+    fn record_entry_descendants(&mut self, entry: &TxEntry) {
+        let tx_short_id: ProposalShortId = entry.proposal_short_id();
+        let outputs = entry.transaction().output_pts();
+        let mut children = HashSet::new();
+
+        // collect children
+        for o in outputs {
+            if let Some(ids) = self.edges.get_deps_ref(&o).cloned() {
+                children.extend(ids);
+            }
+            if let Some(id) = self.edges.get_input_ref(&o).cloned() {
+                children.insert(id);
+            }
+        }
+        // update children
+        if !children.is_empty() {
+            for child in &children {
+                self.links.add_parent(child, tx_short_id.clone());
+            }
+            if let Some(links) = self.links.inner.get_mut(&tx_short_id) {
+                links.children.extend(children);
+            }
+            self.update_descendants_index_key(entry, EntryOp::Add);
+        }
+        // update ancestor's index key for adding new entry
+        self.update_ancestors_index_key(entry, EntryOp::Add);
+    }
+```
+
+**File:** tx-pool/src/component/links.rs (L37-50)
+```rust
+    fn calc_relative_ids(
+        &self,
+        short_id: &ProposalShortId,
+        relation: Relation,
+    ) -> HashSet<ProposalShortId> {
+        let direct = self
+            .inner
+            .get(short_id)
+            .map(|link| link.get_direct_ids(relation))
+            .cloned()
+            .unwrap_or_default();
+
+        self.calc_relation_ids(direct, relation)
+    }
+```
+
+**File:** tx-pool/src/component/entry.rs (L234-247)
+```rust
+impl From<&TxEntry> for EvictKey {
+    fn from(entry: &TxEntry) -> Self {
+        let weight = get_transaction_weight(entry.size, entry.cycles);
+        let descendants_weight =
+            get_transaction_weight(entry.descendants_size, entry.descendants_cycles);
+
+        let descendants_feerate = FeeRate::calculate(entry.descendants_fee, descendants_weight);
+        let feerate = FeeRate::calculate(entry.fee, weight);
+        EvictKey {
+            fee_rate: descendants_feerate.max(feerate),
+            timestamp: entry.timestamp,
+            descendants_count: entry.descendants_count,
+        }
+    }
+```

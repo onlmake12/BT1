@@ -1,0 +1,120 @@
+Audit Report
+
+## Title
+IPv4-Mapped IPv6 Address Bypasses Peer Ban List — (`network/src/peer_store/ban_list.rs`)
+
+## Summary
+`ip_to_network` in `network/src/peer_store/types.rs` performs no address-family normalization. Banning an IPv4 peer stores `IpNetwork::V4(x.x.x.x/32)`, but a reconnection via the IPv4-mapped IPv6 form `::ffff:x.x.x.x` causes `is_ip_banned_until` to construct `IpNetwork::V6(::ffff:x.x.x.x/128)`, which misses the stored V4 entry in both the HashMap fast-path and the linear-scan fallback. The ban is fully bypassed, allowing the misbehaving peer to reconnect indefinitely at negligible cost.
+
+## Finding Description
+`ban_addr` in `peer_store_impl.rs` calls `ip_to_network(addr.ip())` and passes the result to `ban_network`, storing a `BannedAddr` keyed by `IpNetwork::V4(x.x.x.x/32)`: [1](#0-0) 
+
+`ip_to_network` in `types.rs` performs no normalization — an `IpAddr::V6` is unconditionally wrapped in `IpNetwork::V6`: [2](#0-1) 
+
+When the same peer reconnects via `::ffff:x.x.x.x`, `is_ip_banned_until` calls `ip_to_network` again, producing `IpNetwork::V6(::ffff:x.x.x.x/128)`. The HashMap lookup at line 50 misses because the stored key is `IpNetwork::V4`. The linear-scan fallback at lines 56–58 also fails because `IpNetwork::V4(x.x.x.x/32).contains(IpAddr::V6(::ffff:x.x.x.x))` returns `false` — the `ipnetwork` crate does not cross address families: [3](#0-2) 
+
+`network_group.rs` already handles this exact case by calling `ipv6.to_ipv4()` to normalize IPv4-mapped IPv6 addresses before grouping, demonstrating the codebase is aware of the dual-stack ambiguity but the ban path was never updated: [4](#0-3) 
+
+The test helper `random_addr_v6` in `tests/mod.rs` even constructs an IPv4-mapped address (`0xffff` segment), but no ban test exercises cross-family lookup: [5](#0-4) 
+
+`to_ipv4` or `to_ipv4_mapped` normalization is absent from the entire ban path in `network/src/peer_store/`: [2](#0-1) 
+
+## Impact Explanation
+The ban mechanism is the primary defense against peers that send invalid blocks, invalid headers, or otherwise abuse protocol slots. Bypassing it allows a banned peer to reconnect immediately and repeat the same misbehavior at negligible cost (one IPv6 connection attempt). At scale or with automated tooling, this enables sustained resource exhaustion and protocol-level abuse against any dual-stack CKB node. This matches the allowed High impact: **"Vulnerabilities or bad designs which could cause CKB network congestion with few costs."**
+
+## Likelihood Explanation
+Dual-stack IPv4/IPv6 deployments are the default on modern Linux servers and cloud instances. The attacker requires no privileges — only the ability to open a TCP connection from the same IP via IPv6. Knowing one's IPv4 was banned is trivially detectable (connection refused / ban message). The bypass is repeatable without limit and requires no special tooling beyond a standard IPv6 socket.
+
+## Recommendation
+Normalize IPv4-mapped IPv6 addresses to their IPv4 equivalents inside `ip_to_network` in `network/src/peer_store/types.rs`:
+
+```rust
+pub fn ip_to_network(ip: IpAddr) -> IpNetwork {
+    let ip = match ip {
+        IpAddr::V6(v6) => v6.to_ipv4_mapped()
+            .map(IpAddr::V4)
+            .unwrap_or(IpAddr::V6(v6)),
+        v4 => v4,
+    };
+    match ip {
+        IpAddr::V4(ipv4) => IpNetwork::V4(ipv4.into()),
+        IpAddr::V6(ipv6) => IpNetwork::V6(ipv6.into()),
+    }
+}
+```
+
+This mirrors the normalization already applied in `network_group.rs` and fixes both the `ban_addr` store path and the `is_ip_banned_until` lookup path in a single location.
+
+## Proof of Concept
+```rust
+use std::net::{IpAddr, Ipv4Addr, Ipv6Addr};
+use ipnetwork::IpNetwork;
+
+// Step 1: ban 1.2.3.4 (as triggered by ban_addr on an IPv4 peer)
+let banned_ip = IpAddr::V4(Ipv4Addr::new(1, 2, 3, 4));
+let banned_network = ip_to_network(banned_ip); // IpNetwork::V4(1.2.3.4/32)
+ban_list.ban(BannedAddr { address: banned_network, ban_until: u64::MAX, .. });
+
+// Step 2: reconnect via IPv4-mapped IPv6
+let mapped = IpAddr::V6(Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0x0102, 0x0304));
+
+// Step 3: ban check returns false — bypass confirmed
+assert!(!ban_list.is_ip_banned(&mapped));
+```
+
+Add this as a regression test in `network/src/tests/peer_store.rs` to reproduce the failure against current code and confirm it passes after the fix.
+
+### Citations
+
+**File:** network/src/peer_store/peer_store_impl.rs (L287-289)
+```rust
+        if let Some(addr) = multiaddr_to_socketaddr(addr) {
+            let network = ip_to_network(addr.ip());
+            self.ban_network(network, timeout_ms, ban_reason)
+```
+
+**File:** network/src/peer_store/types.rs (L152-156)
+```rust
+pub fn ip_to_network(ip: IpAddr) -> IpNetwork {
+    match ip {
+        IpAddr::V4(ipv4) => IpNetwork::V4(ipv4.into()),
+        IpAddr::V6(ipv6) => IpNetwork::V6(ipv6.into()),
+    }
+```
+
+**File:** network/src/peer_store/ban_list.rs (L48-58)
+```rust
+    fn is_ip_banned_until(&self, ip: IpAddr, now_ms: u64) -> bool {
+        let ip_network = ip_to_network(ip);
+        if let Some(banned_addr) = self.inner.get(&ip_network)
+            && banned_addr.ban_until.gt(&now_ms)
+        {
+            return true;
+        }
+
+        self.inner.iter().any(|(ip_network, banned_addr)| {
+            banned_addr.ban_until.gt(&now_ms) && ip_network.contains(ip)
+        })
+```
+
+**File:** network/src/network_group.rs (L31-35)
+```rust
+            if let IpAddr::V6(ipv6) = ip_addr {
+                if let Some(ipv4) = ipv6.to_ipv4() {
+                    let bits = ipv4.octets();
+                    return Group::IP4([bits[0], bits[1]]);
+                }
+```
+
+**File:** network/src/tests/mod.rs (L17-25)
+```rust
+fn random_addr_v6() -> crate::multiaddr::Multiaddr {
+    let addr = std::net::Ipv6Addr::new(0, 0, 0, 0, 0, 0xffff, 0xc00a, 0x2ff);
+    let mut multi_addr: crate::multiaddr::Multiaddr = addr.into();
+
+    multi_addr.push(crate::multiaddr::Protocol::Tcp(43));
+    multi_addr.push(crate::multiaddr::Protocol::P2P(
+        crate::PeerId::random().into_bytes().into(),
+    ));
+    multi_addr
+```

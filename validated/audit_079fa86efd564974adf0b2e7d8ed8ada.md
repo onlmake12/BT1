@@ -1,0 +1,245 @@
+Audit Report
+
+## Title
+Unbounded `GetBlocks` Flood Without Rate Limiting or Peer Ban — (`sync/src/synchronizer/get_blocks_process.rs`)
+
+## Summary
+`GetBlocksProcess::execute` returns `Status::ok()` for any well-formed `GetBlocks` message containing unknown block hashes, triggering up to 32 synchronous `contains_block_status` DB lookups per message inside `tokio::task::block_in_place`. The `Synchronizer` struct has no rate limiter, unlike `Relayer` which enforces 30 req/sec per peer. An unprivileged connected peer can flood the victim at wire speed, blocking tokio worker threads and exhausting node I/O capacity, rendering the node unresponsive.
+
+## Finding Description
+
+**Root cause:** `GetBlocksProcess::execute` has only three ban-triggering exit paths: `block_hashes.len() > MAX_HEADERS_LEN`, a genesis hash request, and a duplicate hash. For all other inputs — including entirely fabricated hashes — the loop calls `active_chain.contains_block_status` for each hash, silently `continue`s, and returns `Status::ok()`. [1](#0-0) 
+
+**Ban path is unreachable for this attack:** `post_sync_process` calls `nc.ban_peer` only when `status.should_ban()` returns `Some`, which requires the status code to be in `400..500`. `Status::ok()` (code 100) never satisfies this condition. [2](#0-1) [3](#0-2) 
+
+**No rate limiter in `Synchronizer`:** The `Synchronizer` struct contains no `rate_limiter` field and `try_process` performs no rate check before dispatching `GetBlocks`. [4](#0-3) [5](#0-4) 
+
+**Contrast with `Relayer`:** `Relayer::new` initializes a per-peer, per-message-type `RateLimiter` at 30 req/sec, and `Relayer::try_process` returns `StatusCode::TooManyRequests` (110) when exceeded. `Synchronizer` has no equivalent. [6](#0-5) 
+
+**Per-message cost:** Each message iterates up to `INIT_BLOCKS_IN_TRANSIT_PER_PEER = 32` hashes, each triggering a `contains_block_status` DB lookup inside `tokio::task::block_in_place`, which blocks a tokio worker thread for the duration. [7](#0-6) 
+
+**`TooManyRequests` exists but is never applied here:** `StatusCode::TooManyRequests = 110` is defined and used in `Relayer`, but never returned in any `Synchronizer` message handler. [8](#0-7) 
+
+## Impact Explanation
+
+A sustained flood of `GetBlocks` messages with fabricated hashes causes 32 synchronous DB lookups per message, each blocking a tokio worker thread via `block_in_place`. At wire speed, this exhausts the tokio thread pool, starving all other async tasks (block propagation, header sync, peer management) and rendering the node effectively unresponsive. This matches the allowed impact: **High — Vulnerabilities which could easily crash a CKB node** (node becomes unresponsive/unable to process legitimate messages), and also **High — Vulnerabilities or bad designs which could cause CKB network congestion with few costs** (trivially executable by any connected peer at zero cost).
+
+## Likelihood Explanation
+
+The attack requires only a standard inbound P2P connection — no PoW, no key material, no special privileges. The attacker constructs `GetBlocks` messages with 32 random 32-byte hashes (none equal to genesis, none duplicated) and sends them in a tight loop. The victim node will never ban the attacker because the response is always `Status::ok()`. The attack is repeatable indefinitely and requires minimal resources on the attacker side. [9](#0-8) 
+
+## Recommendation
+
+Add a per-peer rate limiter to `Synchronizer::try_process` for `GetBlocks` messages, mirroring the pattern in `Relayer::try_process`: [10](#0-9) 
+
+Return `StatusCode::TooManyRequests` (110) when the rate is exceeded. Optionally, consider returning a 4xx code (triggering a ban) for persistent abusers, or disconnecting the peer after repeated violations.
+
+## Proof of Concept
+
+**Invariant (provable from code):** For any `GetBlocks` message where `0 < block_hashes.len() <= MAX_HEADERS_LEN`, no hash equals genesis, and no duplicates exist, `GetBlocksProcess::execute` always returns `Status::ok()` regardless of whether hashes are real or fabricated. [11](#0-10) 
+
+**Attack loop (pseudocode):**
+```python
+while True:
+    hashes = [random_bytes(32) for _ in range(32)]  # all unknown, no genesis, no dups
+    send GetBlocks(hashes) to victim via SyncProtocol
+    # victim: 32 DB lookups via block_in_place, returns ok(), never bans
+```
+
+The existing unit test `get_blocks_process` confirms only genesis and duplicate hashes trigger bans; unknown hashes are never tested for ban behavior, consistent with the code returning `Status::ok()` for them. [12](#0-11)
+
+### Citations
+
+**File:** sync/src/synchronizer/get_blocks_process.rs (L33-97)
+```rust
+    pub fn execute(self) -> Status {
+        let block_hashes = self.message.block_hashes();
+        // use MAX_HEADERS_LEN as limit, we may increase the value of INIT_BLOCKS_IN_TRANSIT_PER_PEER in the future
+        if block_hashes.len() > MAX_HEADERS_LEN {
+            return StatusCode::ProtocolMessageIsMalformed.with_context(format!(
+                "BlockHashes count({}) > MAX_HEADERS_LEN({})",
+                block_hashes.len(),
+                MAX_HEADERS_LEN,
+            ));
+        }
+        let active_chain = self.synchronizer.shared.active_chain();
+
+        let iter = block_hashes.iter().take(INIT_BLOCKS_IN_TRANSIT_PER_PEER);
+
+        let mut dedup = HashSet::new();
+        for block_hash in iter {
+            debug!("get_blocks {} from peer {:?}", block_hash, self.peer);
+            let block_hash = block_hash.to_entity();
+
+            if block_hash == self.synchronizer.shared().consensus().genesis_hash() {
+                return StatusCode::RequestGenesis.with_context("Request genesis block");
+            }
+
+            if !dedup.insert(block_hash.clone()) {
+                return StatusCode::RequestDuplicate.with_context("Request duplicate block");
+            }
+
+            if !active_chain.contains_block_status(&block_hash, BlockStatus::BLOCK_VALID) {
+                debug!(
+                    "Ignoring get_block {} request from peer={} as it is not verified.",
+                    block_hash, self.peer
+                );
+                continue;
+            }
+
+            if let Some(block) = active_chain.get_block(&block_hash) {
+                debug!(
+                    "respond_block {} {} to peer {:?}",
+                    block.number(),
+                    block.hash(),
+                    self.peer,
+                );
+                let content = packed::SendBlock::new_builder().block(block.data()).build();
+                let message = packed::SyncMessage::new_builder().set(content).build();
+
+                let nc = Arc::clone(self.nc);
+                self.synchronizer
+                    .shared()
+                    .shared()
+                    .async_handle()
+                    .spawn(async move { async_send_message_to(&nc, self.peer, &message).await });
+            } else {
+                // TODO response not found
+                // TODO add timeout check in synchronizer
+
+                // We expect that `block_hashes` is sorted descending by height.
+                // So if we cannot find the current one from local, we cannot find
+                // the next either.
+                debug!("Stopping getblocks, since {} is not found", block_hash);
+                break;
+            }
+        }
+
+        Status::ok()
+    }
+```
+
+**File:** sync/src/status.rs (L67-68)
+```rust
+    /// Generic rate limit error
+    TooManyRequests = 110,
+```
+
+**File:** sync/src/status.rs (L165-167)
+```rust
+    pub fn should_ban(&self) -> Option<Duration> {
+        if !(400..500).contains(&(self.code as u16)) {
+            return None;
+```
+
+**File:** sync/src/types/mod.rs (L2008-2013)
+```rust
+    if let Some(ban_time) = status.should_ban() {
+        error!(
+            "Receive {} from {}. Ban {:?} for {}",
+            item_name, peer, ban_time, status
+        );
+        nc.ban_peer(peer, ban_time, status.to_string());
+```
+
+**File:** sync/src/synchronizer/mod.rs (L357-362)
+```rust
+pub struct Synchronizer {
+    pub(crate) chain: ChainController,
+    /// Sync shared state
+    pub shared: Arc<SyncShared>,
+    fetch_channel: Option<channel::Sender<FetchCMD>>,
+}
+```
+
+**File:** sync/src/synchronizer/mod.rs (L407-411)
+```rust
+            packed::SyncMessageUnionReader::GetBlocks(reader) => {
+                tokio::task::block_in_place(|| {
+                    GetBlocksProcess::new(reader, self, peer, &nc).execute()
+                })
+            }
+```
+
+**File:** sync/src/relayer/mod.rs (L89-123)
+```rust
+        // setup a rate limiter keyed by peer and message type that lets through 30 requests per second
+        // current max rps is 10 (ASK_FOR_TXS_TOKEN / TX_PROPOSAL_TOKEN), 30 is a flexible hard cap with buffer
+        let quota = governor::Quota::per_second(std::num::NonZeroU32::new(30).unwrap());
+        let rate_limiter = RateLimiter::hashmap(quota);
+
+        Relayer {
+            chain,
+            shared,
+            rate_limiter,
+        }
+    }
+
+    /// Get shared state
+    pub fn shared(&self) -> &Arc<SyncShared> {
+        &self.shared
+    }
+
+    async fn try_process(
+        &mut self,
+        nc: Arc<dyn CKBProtocolContext + Sync>,
+        peer: PeerIndex,
+        message: packed::RelayMessageUnionReader<'_>,
+    ) -> Status {
+        // CompactBlock will be verified by POW, it's OK to skip rate limit checking.
+        let should_check_rate =
+            !matches!(message, packed::RelayMessageUnionReader::CompactBlock(_));
+
+        if should_check_rate
+            && self
+                .rate_limiter
+                .check_key(&(peer, message.item_id()))
+                .is_err()
+        {
+            return StatusCode::TooManyRequests.with_context(message.item_name());
+        }
+```
+
+**File:** util/constant/src/sync.rs (L14-14)
+```rust
+pub const INIT_BLOCKS_IN_TRANSIT_PER_PEER: usize = 32;
+```
+
+**File:** sync/src/tests/synchronizer/functions.rs (L1237-1271)
+```rust
+fn get_blocks_process() {
+    let consensus = Consensus::default();
+    let (chain, shared, synchronizer) = start_chain(Some(consensus));
+
+    let num = 2;
+    for i in 1..num {
+        insert_block(chain.chain_controller(), &shared, u128::from(i), i);
+    }
+
+    let genesis_hash = shared.consensus().genesis_hash();
+    let message_with_genesis = packed::GetBlocks::new_builder()
+        .block_hashes(vec![genesis_hash])
+        .build();
+
+    let nc = Arc::new(mock_network_context(1)) as Arc<dyn CKBProtocolContext + Sync + 'static>;
+    let peer: PeerIndex = 1.into();
+    let process = GetBlocksProcess::new(message_with_genesis.as_reader(), &synchronizer, peer, &nc);
+    assert_eq!(
+        process.execute(),
+        StatusCode::RequestGenesis.with_context("Request genesis block")
+    );
+
+    let hash = shared.snapshot().get_block_hash(1).unwrap();
+    let message_with_dup = packed::GetBlocks::new_builder()
+        .block_hashes(vec![hash.clone(), hash])
+        .build();
+
+    let nc = Arc::new(mock_network_context(1)) as Arc<dyn CKBProtocolContext + Sync + 'static>;
+    let peer: PeerIndex = 1.into();
+    let process = GetBlocksProcess::new(message_with_dup.as_reader(), &synchronizer, peer, &nc);
+    assert_eq!(
+        process.execute(),
+        StatusCode::RequestDuplicate.with_context("Request duplicate block")
+    );
+}
+```

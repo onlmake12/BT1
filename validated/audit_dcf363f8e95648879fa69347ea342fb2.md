@@ -1,0 +1,152 @@
+Audit Report
+
+## Title
+O(FILTER_SIZE) Linear Scan Under Shared Mutex on Every `RelayTransactionHashes` Message — (`sync/src/relayer/transaction_hashes_process.rs`)
+
+## Summary
+Every incoming `RelayTransactionHashes` P2P message causes `TransactionHashesProcess::execute()` to acquire the shared `tx_filter` mutex and unconditionally call `remove_expired()`, which iterates all up to 50,000 entries of the `LruCache` with no cooldown or early-exit. Because the rate limiter is keyed per-peer, multiple unprivileged remote peers can independently drive this O(FILTER_SIZE) scan at 30 messages/second each, serializing on the shared mutex and degrading relay transaction propagation throughput across targeted nodes.
+
+## Finding Description
+In `TransactionHashesProcess::execute()` [1](#0-0) , the call sequence acquires the `tx_filter` mutex guard and immediately calls `tx_filter.remove_expired()` before any filtering work. The mutex is held for the entire block duration.
+
+`TtlFilter::remove_expired()` [2](#0-1)  unconditionally calls `.iter()` over the full `inner: LruCache<T, u64>` (capacity `FILTER_SIZE = 50000`) [3](#0-2) , clones all expired keys into a `Vec`, then removes them one by one. There is no cooldown guard, no last-run timestamp, and no time-ordered side-index. The `LruCache` from the `lru` crate uses a doubly-linked list internally, making this iteration pointer-chasing across up to 50,000 nodes regardless of how many entries are actually expired.
+
+The rate limiter [4](#0-3)  is keyed by `(PeerIndex, u32)` [5](#0-4) , meaning each peer independently gets 30 messages/second. With N connected peers, all concurrent callers serialize on the same mutex, creating a queuing bottleneck proportional to `FILTER_SIZE × peer_count × rate`, not message content size. The same pattern is duplicated in the `UnknownParents` branch [6](#0-5) , though that path is triggered by internal tx verification results rather than directly by external messages.
+
+The precondition of a near-full filter is met organically: with `FILTER_TTL = 4 * 60 * 60` (4 hours) and `FILTER_SIZE = 50000`, normal transaction announcement traffic fills the filter during regular network operation. [7](#0-6) 
+
+## Impact Explanation
+This matches **High: Vulnerabilities or bad designs which could cause CKB network congestion with few costs**. An attacker operating N peers (each allowed 30 `RelayTransactionHashes` messages/second by the per-peer rate limiter) forces `N × 30` serialized O(50,000) mutex-held scans per second on a target node. Since all CKB nodes run the same code, coordinated targeting of multiple nodes simultaneously degrades network-wide transaction propagation latency. The per-message processing cost is bounded by `FILTER_SIZE` (a global constant), not by message content, violating the expected cost model for relay message handling.
+
+## Likelihood Explanation
+Any unprivileged peer can send `RelayTransactionHashes` messages up to the per-peer rate limit with no proof-of-work, key, or special role. The filter fills to capacity through normal network operation (legitimate tx hash announcements over 4-hour TTL windows), so the precondition of a near-full filter is met organically. The attack requires only a modified CKB client or a raw P2P message sender targeting the relay protocol. It is trivially repeatable and requires no victim mistakes.
+
+## Recommendation
+1. **Decouple expiry from message handling**: Move `remove_expired()` to a periodic background timer (e.g., the existing `TX_HASHES_TOKEN` notify interval) rather than calling it on every incoming message.
+2. **Add a cooldown guard**: Track the last expiry timestamp inside `TtlFilter` and skip `remove_expired()` if called within a minimum interval (e.g., 60 seconds).
+3. **Use a time-ordered side-index**: Replace the full-scan approach with a `BTreeMap<expiry_time, key>` so expiry is O(expired_count) not O(FILTER_SIZE).
+4. **Add a global rate limit** in addition to the per-peer limit to cap total `remove_expired()` invocations per second across all peers.
+
+## Proof of Concept
+```rust
+// Fill tx_filter to capacity (50,000 entries, all non-expired)
+let state = relayer.shared().state();
+{
+    let mut f = state.tx_filter();
+    for i in 0..50_000u64 {
+        f.insert(Byte32::from_slice(&i.to_le_bytes().repeat(4)).unwrap());
+    }
+}
+
+// Time execute() with a single-hash RelayTransactionHashes message
+// at filter capacity vs. empty filter.
+// Expected: wall-clock time with 50k entries >> time with 0 entries
+// for identical 1-hash messages, proving cost is O(FILTER_SIZE) not O(message_size).
+
+// To demonstrate mutex contention: spawn N threads each calling execute()
+// concurrently and measure throughput degradation vs. N=1.
+// Benchmark assertion: time(50k entries) / time(0 entries) ≈ FILTER_SIZE,
+// independent of message hash count.
+```
+
+### Citations
+
+**File:** sync/src/relayer/transaction_hashes_process.rs (L38-47)
+```rust
+        let tx_hashes: Vec<_> = {
+            let mut tx_filter = state.tx_filter();
+            tx_filter.remove_expired();
+            self.message
+                .tx_hashes()
+                .iter()
+                .map(|x| x.to_entity())
+                .filter(|tx_hash| !tx_filter.contains(tx_hash))
+                .collect()
+        };
+```
+
+**File:** sync/src/types/mod.rs (L51-54)
+```rust
+const FILTER_SIZE: usize = 50000;
+// 2 ** 13 < 6 * 1800 < 2 ** 14
+const ONE_DAY_BLOCK_NUMBER: u64 = 8192;
+pub(crate) const FILTER_TTL: u64 = 4 * 60 * 60;
+```
+
+**File:** sync/src/types/mod.rs (L326-343)
+```rust
+pub struct TtlFilter<T> {
+    inner: LruCache<T, u64>,
+    ttl: u64,
+}
+
+impl<T: Eq + Hash + Clone> Default for TtlFilter<T> {
+    fn default() -> Self {
+        TtlFilter::new(FILTER_SIZE, FILTER_TTL)
+    }
+}
+
+impl<T: Eq + Hash + Clone> TtlFilter<T> {
+    pub fn new(size: usize, ttl: u64) -> Self {
+        Self {
+            inner: LruCache::new(size),
+            ttl,
+        }
+    }
+```
+
+**File:** sync/src/types/mod.rs (L359-377)
+```rust
+    pub fn remove_expired(&mut self) {
+        let now = ckb_systemtime::unix_time().as_secs();
+        let expired_keys: Vec<T> = self
+            .inner
+            .iter()
+            .filter_map(|(key, time)| {
+                if *time + self.ttl < now {
+                    Some(key)
+                } else {
+                    None
+                }
+            })
+            .cloned()
+            .collect();
+
+        for k in expired_keys {
+            self.remove(&k);
+        }
+    }
+```
+
+**File:** sync/src/relayer/mod.rs (L89-92)
+```rust
+        // setup a rate limiter keyed by peer and message type that lets through 30 requests per second
+        // current max rps is 10 (ASK_FOR_TXS_TOKEN / TX_PROPOSAL_TOKEN), 30 is a flexible hard cap with buffer
+        let quota = governor::Quota::per_second(std::num::NonZeroU32::new(30).unwrap());
+        let rate_limiter = RateLimiter::hashmap(quota);
+```
+
+**File:** sync/src/relayer/mod.rs (L116-123)
+```rust
+        if should_check_rate
+            && self
+                .rate_limiter
+                .check_key(&(peer, message.item_id()))
+                .is_err()
+        {
+            return StatusCode::TooManyRequests.with_context(message.item_name());
+        }
+```
+
+**File:** sync/src/relayer/mod.rs (L677-685)
+```rust
+                        let tx_hashes: Vec<_> = {
+                            let mut tx_filter = self.shared.state().tx_filter();
+                            tx_filter.remove_expired();
+                            parents
+                                .into_iter()
+                                .filter(|tx_hash| !tx_filter.contains(tx_hash))
+                                .collect()
+                        };
+                        self.shared.state().add_ask_for_txs(peer, tx_hashes);
+```

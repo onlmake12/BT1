@@ -1,0 +1,71 @@
+The code at line 252 confirms `row_lock.try_get::<bool, _>(0)` is used instead of `row_type.try_get::<bool, _>(0)`. [1](#0-0)  The full exploit path through `rollback_block` is also confirmed. [2](#0-1) 
+
+---
+
+Audit Report
+
+## Title
+Wrong Variable Reference in `script_exists_in_output()` Causes Premature Script Deletion During Reorg — (File: util/rich-indexer/src/indexer/remove.rs)
+
+## Summary
+`script_exists_in_output` at line 252 reads `row_lock` instead of `row_type` in the second `match` block. On PostgreSQL, this causes the function to return the lock-script existence result for both checks, so any script referenced only as a `type_script_id` in surviving outputs is incorrectly reported as absent. `rollback_block` then deletes that script row from the `script` table, silently corrupting the rich-indexer database on every reorg involving type-scripted cells.
+
+## Finding Description
+`script_exists_in_output` runs two SQL `EXISTS` queries — one for `lock_script_id` and one for `type_script_id` — and should return `true` if either finds a match. After fetching `row_type` (lines 237–249), the second `match` at line 252 mistakenly re-reads `row_lock.try_get::<bool, _>(0)` instead of `row_type.try_get::<bool, _>(0)`. On PostgreSQL, `try_get::<bool, _>` succeeds on `row_lock` (PostgreSQL returns `BOOLEAN`), so the `Ok(r)` arm is always taken and `row_type` is never consulted. The function returns the lock-script result for both the lock and type checks. On SQLite, `try_get::<bool, _>` fails (SQLite returns `BIGINT`), so the `Err` arm falls through to `row_type.get::<i64, _>(0)`, which is correct — SQLite is unaffected. In `rollback_block`, outputs are deleted first (line 25), then `script_exists_in_output` is called for each `type_script_id` (line 34). Because the function returns the lock-script result, a script used only as a type script in any surviving output is reported as absent and pushed to `script_id_list_to_remove`, then permanently deleted by `remove_batch_by_blobs` (line 39).
+
+## Impact Explanation
+This is a concrete instance of **Medium — Suboptimal implementation of CKB state storage mechanism**. The rich-indexer is CKB's indexed state storage layer. Deleting a script row that is still referenced by surviving outputs corrupts the indexer database permanently and silently: subsequent RPC calls (`get_cells`, `get_transactions`) that join on `script_id` return incomplete or missing results for any cell whose type script was incorrectly purged. The corruption is not self-healing and accumulates across reorgs.
+
+## Likelihood Explanation
+Chain reorganizations are routine and externally triggerable by any peer that relays a competing chain of sufficient work — no privilege is required. Type scripts are ubiquitous on CKB (UDT, NFT, DAO, etc.). Any PostgreSQL-backed rich-indexer node will silently corrupt its database on every reorg that involves type-scripted cells. The trigger path is fully reachable by an unprivileged network participant.
+
+## Recommendation
+Change line 252 from `row_lock.try_get::<bool, _>(0)` to `row_type.try_get::<bool, _>(0)`:
+
+```rust
+// pg type is BOOLEAN
+match row_type.try_get::<bool, _>(0) {   // ← was row_lock
+    Ok(r) => Ok(r),
+    // sqlite type is BIGINT
+    Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+}
+```
+
+## Proof of Concept
+1. Run a PostgreSQL-backed rich-indexer node.
+2. Index a block containing an output with a type script whose `script_id` is not used as any `lock_script_id` in any other surviving output.
+3. Trigger a chain reorganization that rolls back that block (e.g., by feeding a competing chain of greater work).
+4. `rollback_block` calls `script_exists_in_output(type_script_id, tx)`. The function queries `lock_script_id` existence (false), then queries `type_script_id` existence but reads `row_lock` again — returning `false`.
+5. The type script ID is added to `script_id_list_to_remove` and deleted from the `script` table.
+6. Query `get_cells` or `get_transactions` for any cell referencing that type script — results are missing or incomplete, confirming database corruption.
+
+### Citations
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L25-39)
+```rust
+    remove_batch_by_blobs("output", "tx_id", &tx_id_list, tx).await?;
+
+    // remove script
+    let mut script_id_list_to_remove = Vec::new();
+    for (_, lock_script_id, type_script_id) in output_lock_type_list {
+        if !script_exists_in_output(lock_script_id, tx).await? {
+            script_id_list_to_remove.push(lock_script_id);
+        }
+        if let Some(type_script_id) = type_script_id
+            && !script_exists_in_output(type_script_id, tx).await?
+        {
+            script_id_list_to_remove.push(type_script_id);
+        }
+    }
+    remove_batch_by_blobs("script", "id", &script_id_list_to_remove, tx).await?;
+```
+
+**File:** util/rich-indexer/src/indexer/remove.rs (L251-256)
+```rust
+    // pg type is BOOLEAN
+    match row_lock.try_get::<bool, _>(0) {
+        Ok(r) => Ok(r),
+        // sqlite type is BIGINT
+        Err(_) => Ok(row_type.get::<i64, _>(0) == 1),
+    }
+```
