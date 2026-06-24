@@ -1,0 +1,295 @@
+Audit Report
+
+## Title
+Unbounded `runtime::spawn` via Unauthenticated `ConnectionSync` with Attacker-Controlled `pending_delivered` — (`network/src/protocols/hole_punching/component/connection_sync.rs`)
+
+## Summary
+
+An unprivileged peer can first populate `pending_delivered` with attacker-controlled entries by sending `ConnectionRequest` messages bearing distinct fake `from_peer_id` values, then send `ConnectionSync` messages referencing those fake IDs to trigger unbounded `runtime::spawn` calls. Because `ConnectionSyncProcess` never verifies that the sender's session corresponds to `content.from`, and there is no cap on concurrent NAT traversal tasks, a single attacker session can sustain 30 new spawned tasks per second, each internally polling up to 24 socket-creating futures for 30 seconds, exhausting the Tokio runtime and OS file descriptors.
+
+## Finding Description
+
+**Phase 1 — Populate `pending_delivered`**
+
+When the victim receives a `ConnectionRequest` with `content.to == self_peer_id`, it calls `respond_delivered()`. [1](#0-0) 
+
+Inside `respond_delivered`, the only guard against re-use of the same `from_peer_id` is a 2-minute cooldown keyed by `from_peer_id`: [2](#0-1) 
+
+With M **distinct** fake `from_peer_id` values, this cooldown is bypassed entirely. After sending the `ConnectionRequestDelivered` reply, the victim unconditionally inserts into `pending_delivered`: [3](#0-2) 
+
+The `forward_rate_limiter` is keyed by `(content.from, content.to, msg_item_id)` at 1/sec per key: [4](#0-3) 
+
+With M distinct `from` values, M distinct rate-limit buckets are created, so M `ConnectionRequest` messages pass through (bounded only by the per-session cap of 30/sec). Entries persist for `TIMEOUT = 5 * 60 * 1000` ms: [5](#0-4) 
+
+This allows accumulation of up to ~9,000 entries (30/sec × 300 sec) before the first ones expire.
+
+**Phase 2 — Trigger unbounded task spawns via `ConnectionSync`**
+
+`ConnectionSyncProcess` is constructed without the sender's session ID or peer ID — it only receives `bind_addr` and `msg_item_id`: [6](#0-5) 
+
+When the victim receives `ConnectionSync { from=fake_id_i, to=V_id, route=[] }`, it checks `self_peer_id == content.to`, looks up `pending_delivered[content.from]`, and unconditionally spawns a task with **no check** that the sending session corresponds to `content.from`: [7](#0-6) 
+
+The `forward_rate_limiter` is again keyed by `(content.from, content.to, msg_item_id)`: [8](#0-7) 
+
+With M unique `fake_id_i` values, M distinct rate-limit buckets are created, so M `ConnectionSync` messages per second pass through (bounded only by the 30/sec per-session cap).
+
+**Phase 3 — Each spawned task is expensive**
+
+Each spawned task runs `select_ok` over up to `ADDRS_COUNT_LIMIT = 24` concurrent `try_nat_traversal` futures: [9](#0-8) 
+
+Each `try_nat_traversal` future runs for up to 30 seconds, creating a new TCP socket and attempting a connection every ~200ms: [10](#0-9) 
+
+At 30 `ConnectionSync`/sec, each spawning a task with 24 concurrent socket-creating futures, and each task living 30 seconds: **30 spawned tasks/sec × 30 sec = 900 concurrent spawned tasks at steady state**, each polling 24 futures = **21,600 concurrent `try_nat_traversal` futures** from a single attacker session.
+
+**Contrast with `ConnectionRequestDelivered`**: that handler requires `inflight_requests.remove(&content.to)` to succeed, providing a meaningful guard that `ConnectionSync` lacks: [11](#0-10) 
+
+## Impact Explanation
+
+Each spawned task holds a Tokio runtime slot for 30 seconds and its internal `try_nat_traversal` futures each create OS TCP sockets on every retry iteration. At 900 concurrent spawned tasks (21,600 concurrent socket-creating futures) from one attacker session, the Tokio thread pool and OS file descriptor limits are exhausted, causing the victim node to stop processing all other P2P messages (sync, block relay, transaction relay), effectively crashing the node. This matches the **High** impact class: *"Vulnerabilities which could easily crash a CKB node"* (10001–15000 points). Multiple attacker sessions scale this linearly.
+
+## Likelihood Explanation
+
+The attacker requires only a single standard P2P connection to the victim — no PoW, no privileged role, no key material. The two-phase attack (populate then trigger) is straightforward to implement using the existing CKB P2P protocol. The `ADDRS_COUNT_LIMIT = 24` constant maximizes the per-message task count. The attack is repeatable and sustainable as long as the attacker maintains the connection. The only prerequisite is that the victim node has at least one configured listen address (standard for any running node), which is required for the `runtime::spawn` branch to execute. [12](#0-11) 
+
+## Recommendation
+
+1. **Verify sender identity in `ConnectionSync`**: Pass the sender's session ID into `ConnectionSyncProcess` and confirm the session's peer ID equals `content.from` before processing.
+2. **Cap concurrent NAT traversal tasks**: Maintain a global atomic counter; reject `runtime::spawn` calls beyond a small limit (e.g., 4–8 concurrent tasks).
+3. **Bound `pending_delivered` size**: Enforce a maximum map size (e.g., 64 entries) and evict the oldest entry on overflow.
+4. **Require `inflight_requests` for `ConnectionSync`**: Mirror the guard used in `ConnectionRequestDeliveredProcess` — only process `ConnectionSync` if the victim previously initiated a request for `content.from`.
+
+## Proof of Concept
+
+```
+1. Attacker connects to victim V (peer ID = V_id).
+
+2. For i in 1..M (M ≤ 9000, rate: 30/sec):
+   - Generate fake_id_i = random PeerId
+   - Send ConnectionRequest { from=fake_id_i, to=V_id,
+       listen_addrs=[24 valid TCP IP:port], route=[], max_hops=6 }
+   - V: self_peer_id == content.to ✓
+   - V: forward_rate_limiter[(fake_id_i, V_id, item_id)] → new bucket, passes ✓
+   - V: pending_delivered[fake_id_i] = ([24 addrs], now)
+
+3. For i in 1..M (rate: 30/sec):
+   - Send ConnectionSync { from=fake_id_i, to=V_id, route=[] }
+   - V: self_peer_id == content.to ✓
+   - V: forward_rate_limiter[(fake_id_i, V_id, item_id)] → new bucket, passes ✓
+   - V: pending_delivered.get(fake_id_i) → Some([24 addrs]) ✓
+   - V: runtime::spawn(select_ok(24 try_nat_traversal futures))
+   → 30 spawned tasks/sec, 900 concurrent tasks at steady state,
+     21,600 concurrent socket-creating futures
+
+4. Assert: V's Tokio runtime and OS fd table are saturated;
+   all P2P message processing stalls; node is effectively offline.
+```
+
+### Citations
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L132-143)
+```rust
+        if self
+            .protocol
+            .forward_rate_limiter
+            .check_key(&(content.from.clone(), content.to.clone(), self.msg_item_id))
+            .is_err()
+        {
+            debug!(
+                "from: {}, to {}, item_name: {}, rate limit is reached",
+                content.from, content.to, "ConnectionRequest",
+            );
+            return StatusCode::TooManyRequests.with_context("ConnectionRequest");
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L145-147)
+```rust
+        if self_peer_id == &content.to {
+            self.respond_delivered(content.from, &content.to, content.listen_addrs)
+                .await
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L161-167)
+```rust
+        if let Some((_, t)) = self.protocol.pending_delivered.get(&from_peer_id) {
+            let now = unix_time_as_millis();
+            if now - t < HOLE_PUNCHING_INTERVAL {
+                return StatusCode::Ignore
+                    .with_context("a same message is already replied in a moment ago");
+            }
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request.rs (L234-237)
+```rust
+        let now = unix_time_as_millis();
+        self.protocol
+            .pending_delivered
+            .insert(from_peer_id, (remote_listens, now));
+```
+
+**File:** network/src/protocols/hole_punching/mod.rs (L27-27)
+```rust
+const ADDRS_COUNT_LIMIT: usize = 24;
+```
+
+**File:** network/src/protocols/hole_punching/mod.rs (L28-28)
+```rust
+const TIMEOUT: u64 = 5 * 60 * 1000; // 5 minutes
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L51-57)
+```rust
+pub(crate) struct ConnectionSyncProcess<'a> {
+    message: packed::ConnectionSyncReader<'a>,
+    protocol: &'a HolePunching,
+    p2p_control: &'a ServiceAsyncControl,
+    bind_addr: Option<SocketAddr>,
+    msg_item_id: u32,
+}
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L85-96)
+```rust
+        if self
+            .protocol
+            .forward_rate_limiter
+            .check_key(&(content.from.clone(), content.to.clone(), self.msg_item_id))
+            .is_err()
+        {
+            debug!(
+                "from: {}, to {}, item_name: {}, rate limit is reached",
+                content.from, content.to, "ConnectionSync",
+            );
+            return StatusCode::TooManyRequests.with_context("ConnectionSync");
+        }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_sync.rs (L111-163)
+```rust
+                    let listens_info = self
+                        .protocol
+                        .pending_delivered
+                        .get(&content.from)
+                        .map(|info| info.0.clone());
+
+                    match listens_info {
+                        Some(listens) => {
+                            let tasks = listens
+                                .into_iter()
+                                .map(|listen_addr| {
+                                    Box::pin(try_nat_traversal(self.bind_addr, listen_addr))
+                                })
+                                .collect::<Vec<_>>();
+
+                            if tasks.is_empty() {
+                                return StatusCode::Ignore.with_context("no valid listen address");
+                            }
+
+                            debug!(
+                                "current peer is the target peer {}, start NAT traversal",
+                                content.to
+                            );
+
+                            match self
+                                .protocol
+                                .network_state
+                                .config
+                                .listen_addresses
+                                .first()
+                                .cloned()
+                            {
+                                Some(listen_addr) => {
+                                    let control: ServiceAsyncControl = self.p2p_control.clone();
+                                    runtime::spawn(async move {
+                                        if let Ok(((stream, addr), _)) = select_ok(tasks).await {
+                                            debug!("NAT traversal success, addr: {:?}", addr);
+                                            if let Some(metrics) = ckb_metrics::handle() {
+                                                metrics
+                                                    .ckb_hole_punching_passive_success_count
+                                                    .inc();
+                                            }
+
+                                            let _ignore = control
+                                                .raw_session(
+                                                    stream,
+                                                    addr,
+                                                    RawSessionInfo::inbound(listen_addr),
+                                                )
+                                                .await;
+                                        }
+                                    });
+                                    Status::ok()
+```
+
+**File:** network/src/protocols/hole_punching/component/mod.rs (L65-111)
+```rust
+    let timeout_duration = Duration::from_secs(30);
+    let start_time = Instant::now();
+    let mut retry_count = 0u32;
+    while start_time.elapsed() < timeout_duration {
+        retry_count += 1;
+
+        // Add a small amount of random jitter (±25ms) to avoid conflicts
+        // caused by continuous precise synchronization
+        let jitter = Duration::from_millis(rand::random::<u64>() % 50);
+        let actual_interval = if rand::random::<bool>() {
+            base_retry_interval + jitter
+        } else {
+            base_retry_interval.saturating_sub(jitter)
+        };
+
+        let socket = create_socket(bind_addr, net_addr)?;
+
+        match runtime::timeout(
+            std::time::Duration::from_millis(200),
+            socket.connect(net_addr),
+        )
+        .await
+        {
+            Ok(Ok(stream)) => {
+                // try get the stored error in the underlying socket
+                // if the socket is not connected, it will return an error
+                if let Err(err) = check_connection(&stream) {
+                    debug!("Failed to connect to NAT(base check): {}", err);
+                }
+                return Ok((stream, addr));
+            }
+            Err(err) => {
+                debug!("Failed to connect to NAT(timeout): {}", err);
+            }
+            Ok(Err(err)) => {
+                if err.kind() == std::io::ErrorKind::AddrNotAvailable {
+                    return Err(err);
+                }
+                debug!(
+                    "Failed to connect to NAT(other error): {}, {}",
+                    err.kind(),
+                    err
+                );
+            }
+        }
+        runtime::delay_for(actual_interval).await;
+    }
+```
+
+**File:** network/src/protocols/hole_punching/component/connection_request_delivered.rs (L160-176)
+```rust
+                    let request_start = self.protocol.inflight_requests.remove(&content.to);
+
+                    match request_start {
+                        Some(start) => {
+                            let res = self.respond_sync(content.from).await;
+                            if !res.is_ok() {
+                                return res;
+                            }
+                            let now = unix_time_as_millis();
+                            let ttl = now - start;
+
+                            self.try_nat_traversal(ttl, content.listen_addrs);
+
+                            Status::ok()
+                        }
+                        None => StatusCode::Ignore.with_context("the request is not in flight"),
+                    }
+```

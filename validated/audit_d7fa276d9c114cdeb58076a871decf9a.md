@@ -1,0 +1,145 @@
+Audit Report
+
+## Title
+Missing Ancestor Validation in `GetBlocksProofProcess::execute` Enables Unbanned DoS via Out-of-Range MMR Proof Requests — (File: `util/light-client-protocol-server/src/components/get_blocks_proof.rs`)
+
+## Summary
+
+`GetBlocksProofProcess::execute` validates that `last_hash` is on the main chain but never checks that requested `block_hashes` have block numbers ≤ `last_block.number()`. An attacker can supply a `last_hash` for block N and `block_hashes` for blocks N+1..N+1000 (all valid main-chain hashes), triggering up to 3000 RocksDB lookups followed by a guaranteed `InternalError(500)` from `gen_proof`. Because `should_ban()` only bans on 4xx codes, the peer is never banned and can repeat this indefinitely.
+
+## Finding Description
+
+**Validation gap in `execute()`:**
+
+`last_block_hash` is checked with `is_main_chain` at [1](#0-0)  but no check enforces that each requested block hash has `header.number() <= last_block.number()`.
+
+The `partition(is_main_chain)` call at [2](#0-1)  places blocks N+1..N+K into `found` (they are on the main chain). For each, `get_block_header`, `get_block_uncles`, and `get_block_extension` are called: [3](#0-2) 
+
+**MMR failure in `reply_proof()`:**
+
+The MMR is constructed as `chain_root_mmr(last_block.number() - 1)`, covering only leaves 0..N-1: [4](#0-3) 
+
+`gen_proof` is then called with positions for blocks N+1..N+K, which are outside the MMR's size, returning `Err` and causing `StatusCode::InternalError`: [5](#0-4) 
+
+**No ban for 5xx:**
+
+`should_ban()` only bans for codes in `400..500` (exclusive upper bound); `InternalError = 500` is excluded: [6](#0-5) 
+
+The peer receives only a `warn!` log and is free to repeat the request immediately: [7](#0-6) 
+
+## Impact Explanation
+
+Each malicious request with K=1000 (the enforced limit at `GET_BLOCKS_PROOF_LIMIT`) [8](#0-7)  causes 1000 `get_block_header` + 1000 `get_block_uncles` + 1000 `get_block_extension` RocksDB lookups, plus one MMR root computation and one failed `gen_proof`. Since the peer is never banned, this loop can be repeated at network speed. Multiple peers doing this simultaneously can cause sustained amplified I/O load, matching the **High** impact class: *Vulnerabilities or bad designs which could cause CKB network congestion with few costs*, and potentially *Vulnerabilities which could easily crash a CKB node* under sustained load.
+
+## Likelihood Explanation
+
+Any peer that has synced the chain knows all block hashes. Constructing the malicious message requires no special privilege, no PoW, and no key material — only a standard P2P connection to the light-client port. The attack is locally testable and trivially scriptable. The amplification ratio (3000 RocksDB ops per small fixed-size message) makes it economically attractive.
+
+## Recommendation
+
+In `execute()`, after resolving `last_block`, add a check that each block hash in `found` has `header.number() <= last_block.number()`. Blocks with numbers exceeding `last_block.number()` cannot be ancestors of `last_hash` and should be treated as a malformed request:
+
+```rust
+// In the for loop over `found`, after resolving `header`:
+if header.number() > last_block.number() {
+    return StatusCode::MalformedProtocolMessage
+        .with_context("block is not an ancestor of last_hash");
+}
+```
+
+This returns a 4xx code, causing `should_ban()` to return `Some(BAD_MESSAGE_BAN_TIME)` and banning the peer after the first such request. Alternatively, move out-of-range hashes to `missing` rather than rejecting the whole request, but still avoid calling `gen_proof` with out-of-range positions.
+
+## Proof of Concept
+
+```
+1. Server has main chain of height M (M >= 2).
+2. Attacker learns block hashes for heights N and N+1..N+1000 via normal sync (N < M-1000).
+3. Attacker sends GetBlocksProof {
+       last_hash:    block[N].hash,
+       block_hashes: [block[N+1].hash, ..., block[N+1000].hash]
+   }
+4. Server: last_hash passes is_main_chain ✓
+5. Server: all block_hashes pass is_main_chain → found = [N+1..N+1000]
+6. Server: 3000 RocksDB lookups executed
+7. Server: chain_root_mmr(N-1).gen_proof([pos(N+1)..pos(N+1000)]) → Err
+8. Server returns InternalError(500); peer not banned.
+9. Attacker repeats from step 3 indefinitely at network speed.
+```
+
+A unit test can be written against `GetBlocksProofProcess::execute` by constructing a mock chain of height M (using the existing `MockChain` test harness), then sending a `GetBlocksProof` message with `last_hash = block[N]` and `block_hashes = [block[N+1]]`, and asserting the returned `Status` is `InternalError` while verifying `nc.not_banned(peer_index)` is true — confirming the peer escapes punishment.
+
+### Citations
+
+**File:** util/light-client-protocol-server/src/components/get_blocks_proof.rs (L44-50)
+```rust
+        let last_block_hash = self.message.last_hash().to_entity();
+        if !snapshot.is_main_chain(&last_block_hash) {
+            return self
+                .protocol
+                .reply_tip_state::<packed::SendBlocksProof>(self.peer, self.nc)
+                .await;
+        }
+```
+
+**File:** util/light-client-protocol-server/src/components/get_blocks_proof.rs (L72-74)
+```rust
+        let (found, missing): (Vec<_>, Vec<_>) = block_hashes
+            .into_iter()
+            .partition(|block_hash| snapshot.is_main_chain(block_hash));
+```
+
+**File:** util/light-client-protocol-server/src/components/get_blocks_proof.rs (L81-95)
+```rust
+        for block_hash in found {
+            let header = snapshot
+                .get_block_header(&block_hash)
+                .expect("header should be in store");
+            positions.push(leaf_index_to_pos(header.number()));
+            block_headers.push(header.data());
+
+            let uncles = snapshot
+                .get_block_uncles(&block_hash)
+                .expect("block uncles must be stored");
+            let extension = snapshot.get_block_extension(&block_hash);
+
+            uncles_hash.push(uncles.data().calc_uncles_hash());
+            extensions.push(packed::BytesOpt::new_builder().set(extension).build());
+        }
+```
+
+**File:** util/light-client-protocol-server/src/lib.rs (L87-88)
+```rust
+        } else if status.should_warn() {
+            warn!("process {} from {}; result is {}", item_name, peer, status);
+```
+
+**File:** util/light-client-protocol-server/src/lib.rs (L199-199)
+```rust
+            let mmr = snapshot.chain_root_mmr(last_block.number() - 1);
+```
+
+**File:** util/light-client-protocol-server/src/lib.rs (L210-215)
+```rust
+                match mmr.gen_proof(items_positions) {
+                    Ok(proof) => proof.proof_items().to_owned(),
+                    Err(err) => {
+                        let errmsg = format!("failed to generate a proof since {err:?}");
+                        return StatusCode::InternalError.with_context(errmsg);
+                    }
+```
+
+**File:** util/light-client-protocol-server/src/status.rs (L95-101)
+```rust
+    pub fn should_ban(&self) -> Option<Duration> {
+        let code = self.code as u16;
+        if !(400..500).contains(&code) {
+            None
+        } else {
+            Some(constant::BAD_MESSAGE_BAN_TIME)
+        }
+```
+
+**File:** util/light-client-protocol-server/src/constant.rs (L5-5)
+```rust
+pub const GET_BLOCKS_PROOF_LIMIT: usize = 1000;
+```
