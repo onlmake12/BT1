@@ -1,1 +1,0 @@
-The `.expect("checked data")` at line 138 is confirmed in the code, and `ScriptHashType::try_from(3)` does return `Err`. Let me verify the transaction verifier actually blocks hash_type=3 before storage.
