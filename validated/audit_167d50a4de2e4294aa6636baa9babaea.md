@@ -1,0 +1,204 @@
+Audit Report
+
+## Title
+Missing Per-Peer Rate Limit on `LightClientProtocol` Enables Unbounded MMR Database Reads — (`util/light-client-protocol-server/src/lib.rs`)
+
+## Summary
+`LightClientProtocol` contains no rate-limiting field or check of any kind. Every `GetLastState` message from any peer unconditionally invokes `get_verifiable_tip_header()`, which performs a RocksDB block-body read and O(log N) MMR reads from `COLUMN_CHAIN_ROOT_MMR`. The Relayer and HolePunching protocols both carry `governor`-based 30 req/s per-peer rate limiters; the light-client protocol carries none, and its `StatusCode` enum does not even define a `TooManyRequests` variant.
+
+## Finding Description
+`LightClientProtocol` is defined with only a `shared: Shared` field and no rate-limiting infrastructure: [1](#0-0) 
+
+`try_process` dispatches directly to handlers with zero rate-limit checks: [2](#0-1) 
+
+`GetLastStateProcess::execute()` unconditionally calls `get_verifiable_tip_header()` regardless of the `subscribe` flag: [3](#0-2) 
+
+`get_verifiable_tip_header()` performs: (1) an `Arc` clone of the chain snapshot, (2) a RocksDB block-body read via `get_block`, and (3) O(log N) RocksDB reads from `COLUMN_CHAIN_ROOT_MMR` via `chain_root_mmr(...).get_root()`: [4](#0-3) 
+
+The `StatusCode` enum in the light-client protocol has no `TooManyRequests` variant, confirming there is no rate-limiting infrastructure anywhere in the protocol: [5](#0-4) 
+
+By contrast, `Relayer` carries an explicit `governor`-based rate limiter checked before any handler dispatch: [6](#0-5) [7](#0-6) 
+
+`HolePunching` applies the same pattern: [8](#0-7) 
+
+A grep across the entire `util/light-client-protocol-server/` directory confirms zero occurrences of `rate_limiter`, `RateLimiter`, or `governor`.
+
+
+## Impact Explanation
+A single unprivileged peer connecting on the `LightClient` protocol can send `GetLastState` messages at the maximum rate the TCP connection allows. Each message triggers O(log N) RocksDB reads from `COLUMN_CHAIN_ROOT_MMR` where N is the current chain height. On mainnet with millions of blocks, this is approximately 20–25 RocksDB reads per message. Sustained flooding produces unbounded I/O and CPU amplification with no per-peer throttle, which can exhaust RocksDB I/O bandwidth and crash or severely degrade the full node. This matches the allowed High impact: **"Vulnerabilities which could easily crash a CKB node."**
+
+## Likelihood Explanation
+Any peer that can open a TCP connection to the node's `LightClient` protocol endpoint can trigger this. No authentication, PoW, or privileged role is required. The `subscribe` flag value is irrelevant — the MMR read occurs on every `GetLastState` message unconditionally. The attack is trivially scriptable (tight loop sending `GetLastState` messages) and repeatable indefinitely. Multiple attacking peers scale the impact linearly.
+
+## Recommendation
+Add a `governor`-based `RateLimiter<(PeerIndex, u32)>` field to `LightClientProtocol`, mirroring the pattern in `Relayer`: [9](#0-8) 
+
+Check it at the top of `try_process` before dispatching to any handler, using the same 30 req/s per-peer-per-message-type quota. Also add a `TooManyRequests` variant to `StatusCode` in `util/light-client-protocol-server/src/status.rs` so the check can return a proper status.
+
+## Proof of Concept
+1. Connect a peer to the node's `LightClient` protocol endpoint (no credentials required).
+2. In a tight loop, send `GetLastState { subscribe: false }` messages at maximum TCP throughput.
+3. Monitor via RocksDB statistics (`COLUMN_CHAIN_ROOT_MMR` read IOPS) and `perf` CPU profiling — both scale linearly with message rate.
+4. Confirm that no `TooManyRequests` status is ever returned (the `StatusCode` enum does not define it), unlike the Relayer which returns it after 30 req/s per peer.
+5. Observe node I/O saturation and potential crash under sustained load, especially on mainnet where the MMR tree depth is ~20–25 levels.
+
+### Citations
+
+**File:** util/light-client-protocol-server/src/lib.rs (L26-29)
+```rust
+pub struct LightClientProtocol {
+    /// Sync shared state.
+    pub shared: Shared,
+}
+```
+
+**File:** util/light-client-protocol-server/src/lib.rs (L96-125)
+```rust
+    async fn try_process(
+        &mut self,
+        nc: &Arc<dyn CKBProtocolContext + Sync>,
+        peer_index: PeerIndex,
+        message: packed::LightClientMessageUnionReader<'_>,
+    ) -> Status {
+        match message {
+            packed::LightClientMessageUnionReader::GetLastState(reader) => {
+                components::GetLastStateProcess::new(reader, self, peer_index, nc)
+                    .execute()
+                    .await
+            }
+            packed::LightClientMessageUnionReader::GetLastStateProof(reader) => {
+                components::GetLastStateProofProcess::new(reader, self, peer_index, nc)
+                    .execute()
+                    .await
+            }
+            packed::LightClientMessageUnionReader::GetBlocksProof(reader) => {
+                components::GetBlocksProofProcess::new(reader, self, peer_index, nc)
+                    .execute()
+                    .await
+            }
+            packed::LightClientMessageUnionReader::GetTransactionsProof(reader) => {
+                components::GetTransactionsProofProcess::new(reader, self, peer_index, nc)
+                    .execute()
+                    .await
+            }
+            _ => StatusCode::UnexpectedProtocolMessage.into(),
+        }
+    }
+```
+
+**File:** util/light-client-protocol-server/src/lib.rs (L127-145)
+```rust
+    pub(crate) fn get_verifiable_tip_header(&self) -> Result<packed::VerifiableHeader, String> {
+        let snapshot = self.shared.snapshot();
+
+        let tip_hash = snapshot.tip_hash();
+        let tip_block = snapshot
+            .get_block(&tip_hash)
+            .expect("checked: tip block should be existed");
+        let parent_chain_root = if tip_block.is_genesis() {
+            Default::default()
+        } else {
+            let mmr = snapshot.chain_root_mmr(tip_block.number() - 1);
+            match mmr.get_root() {
+                Ok(root) => root,
+                Err(err) => {
+                    let errmsg = format!("failed to generate a root since {err:?}");
+                    return Err(errmsg);
+                }
+            }
+        };
+```
+
+**File:** util/light-client-protocol-server/src/components/get_last_state.rs (L29-45)
+```rust
+    pub(crate) async fn execute(self) -> Status {
+        let subscribe: bool = self.message.subscribe().into();
+        if subscribe {
+            self.nc.with_peer_mut(
+                self.peer,
+                Box::new(|peer| {
+                    peer.if_lightclient_subscribed = true;
+                }),
+            );
+        }
+
+        let tip_header = match self.protocol.get_verifiable_tip_header() {
+            Ok(tip_state) => tip_state,
+            Err(errmsg) => {
+                return StatusCode::InternalError.with_context(errmsg);
+            }
+        };
+```
+
+**File:** util/light-client-protocol-server/src/status.rs (L16-38)
+```rust
+pub enum StatusCode {
+    /// OK
+    OK = 200,
+
+    /// Malformed protocol message.
+    MalformedProtocolMessage = 400,
+    /// Unexpected light-client protocol message.
+    UnexpectedProtocolMessage = 401,
+
+    /// The request data is incorrect.
+    InvalidRequest = 410,
+    /// The last block sent from client is invalid.
+    InvalidLastBlock = 411,
+    /// At least one unconfirmed block sent from client is invalid.
+    InvalidUnconfirmedBlock = 412,
+    /// The difficulty boundary is not in the provided block range.
+    InvaildDifficultyBoundary = 413,
+
+    /// Throws an internal error.
+    InternalError = 500,
+    /// Throws an error from the network.
+    Network = 501,
+}
+```
+
+**File:** sync/src/relayer/mod.rs (L78-82)
+```rust
+pub struct Relayer {
+    chain: ChainController,
+    pub(crate) shared: Arc<SyncShared>,
+    rate_limiter: RateLimiter<(PeerIndex, u32)>,
+}
+```
+
+**File:** sync/src/relayer/mod.rs (L89-92)
+```rust
+        // setup a rate limiter keyed by peer and message type that lets through 30 requests per second
+        // current max rps is 10 (ASK_FOR_TXS_TOKEN / TX_PROPOSAL_TOKEN), 30 is a flexible hard cap with buffer
+        let quota = governor::Quota::per_second(std::num::NonZeroU32::new(30).unwrap());
+        let rate_limiter = RateLimiter::hashmap(quota);
+```
+
+**File:** sync/src/relayer/mod.rs (L116-123)
+```rust
+        if should_check_rate
+            && self
+                .rate_limiter
+                .check_key(&(peer, message.item_id()))
+                .is_err()
+        {
+            return StatusCode::TooManyRequests.with_context(message.item_name());
+        }
+```
+
+**File:** network/src/protocols/hole_punching/mod.rs (L95-107)
+```rust
+        if self
+            .rate_limiter
+            .check_key(&(session_id, msg.item_id()))
+            .is_err()
+        {
+            debug!(
+                "process {} from {}; result is {}",
+                item_name,
+                session_id,
+                status::StatusCode::TooManyRequests.with_context(msg.item_name())
+            );
+            return;
+        }
+```

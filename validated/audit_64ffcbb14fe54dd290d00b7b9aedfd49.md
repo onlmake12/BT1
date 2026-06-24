@@ -1,0 +1,149 @@
+Audit Report
+
+## Title
+`GetBlocksProcess` Missing IBD State Check Allows Peers to Consume IBD Node Resources - (`File: sync/src/synchronizer/get_blocks_process.rs`)
+
+## Summary
+The module-level documentation in `sync/src/synchronizer/mod.rs` explicitly states that a node in IBD mode must respond with `InIBD` to both `GetHeaders` and `GetBlocks` requests. `GetHeadersProcess` enforces this correctly, but `GetBlocksProcess::execute()` contains no IBD check and immediately processes block requests from any peer, performing RocksDB status lookups and potentially serving full block data during IBD.
+
+## Finding Description
+`sync/src/synchronizer/mod.rs` line 4 documents the design contract: [1](#0-0) 
+
+`GetHeadersProcess::execute()` enforces this at line 53 by calling `active_chain.is_initial_block_download()`, sending `InIBD`, and returning early: [2](#0-1) 
+
+`GetBlocksProcess::execute()` has no such check. It immediately reads `block_hashes`, acquires `active_chain`, and enters the processing loop: [3](#0-2) 
+
+The `try_process` dispatcher in `mod.rs` applies no top-level IBD guard before routing `GetBlocks` to `GetBlocksProcess`: [4](#0-3) 
+
+The IBD guard in `sync/src/relayer/mod.rs` lines 815–818 is irrelevant here because `GetBlocks` is a Sync protocol message, not a Relay protocol message. [5](#0-4) 
+
+For each requested hash, the node performs a `contains_block_status(..., BlockStatus::BLOCK_VALID)` RocksDB lookup, and for any hash that passes, retrieves and serializes the full block and spawns an async send task. Processing is bounded to `INIT_BLOCKS_IN_TRANSIT_PER_PEER` (32) hashes per call, but the input cap is `MAX_HEADERS_LEN` (2000). [6](#0-5) 
+
+## Impact Explanation
+This matches **Low (501–2000 points): Any other important performance improvements for CKB**. The missing IBD gate causes the node to perform unnecessary disk I/O (RocksDB status lookups and block retrieval) and CPU work (serialization, async task spawning) in response to peer-initiated `GetBlocks` messages during IBD, directly contradicting the documented design intent. The node does not crash and consensus is not affected, but IBD throughput is degraded by resource competition. The `BLOCK_VALID` filter limits actual block serving to already-validated blocks, bounding the worst-case impact per message, but repeated flooding across the IBD window is feasible and cumulative.
+
+## Likelihood Explanation
+Any peer that establishes a TCP connection and opens the Sync protocol can send `GetBlocks` messages. No authentication, privilege, or majority hashpower is required. The node accepts inbound Sync connections during IBD and processes all Sync message types through `try_process` without a top-level IBD guard. Valid block hashes for early-chain blocks are public on-chain data. The attack is repeatable for the entire duration of IBD.
+
+## Recommendation
+Add an IBD check at the top of `GetBlocksProcess::execute()`, mirroring `GetHeadersProcess`. A `send_in_ibd()` helper (identical to the one in `GetHeadersProcess`) should be added to `GetBlocksProcess`, and the method should return `Status::ignored()` when `active_chain.is_initial_block_download()` is true. [7](#0-6) 
+
+## Proof of Concept
+1. Start a CKB node from genesis; `is_initial_block_download()` returns `true` because `unix_time_as_millis() - tip_header.timestamp() > MAX_TIP_AGE`.
+2. Connect a custom peer that opens the Sync protocol.
+3. Send a `GetBlocks` message containing hashes of blocks 1–32 (which will be `BLOCK_VALID` shortly after genesis validation).
+4. Observe that the node responds with `SendBlock` messages containing full block data instead of an `InIBD` response.
+5. Contrast with sending `GetHeaders` to the same node, which correctly returns `InIBD` and logs: *"Ignoring getheaders from peer=X because the node is in initial block download stage."* [2](#0-1) 
+6. Repeat step 3 in a tight loop to demonstrate cumulative disk I/O load competing with the node's own block download pipeline.
+
+### Citations
+
+**File:** sync/src/synchronizer/mod.rs (L1-7)
+```rust
+//! CKB node has initial block download phase (IBD mode) like Bitcoin:
+//! <https://btcinformation.org/en/glossary/initial-block-download>
+//!
+//! When CKB node is in IBD mode, it will respond `packed::InIBD` to `GetHeaders` and `GetBlocks` requests
+//!
+//! And CKB has a headers-first synchronization style like Bitcoin:
+//! <https://btcinformation.org/en/glossary/headers-first-sync>
+```
+
+**File:** sync/src/synchronizer/mod.rs (L407-411)
+```rust
+            packed::SyncMessageUnionReader::GetBlocks(reader) => {
+                tokio::task::block_in_place(|| {
+                    GetBlocksProcess::new(reader, self, peer, &nc).execute()
+                })
+            }
+```
+
+**File:** sync/src/synchronizer/get_headers_process.rs (L53-66)
+```rust
+        if active_chain.is_initial_block_download() {
+            info!(
+                "Ignoring getheaders from peer={} because the node is in initial block download stage.",
+                self.peer
+            );
+            self.send_in_ibd();
+            let shared = self.synchronizer.shared();
+            if let Some(flag) = shared.state().peers().get_flag(self.peer)
+                && (flag.is_outbound || flag.is_whitelist || flag.is_protect)
+            {
+                shared.insert_peer_unknown_header_list(self.peer, block_locator_hashes);
+            };
+            return Status::ignored();
+        }
+```
+
+**File:** sync/src/synchronizer/get_headers_process.rs (L101-115)
+```rust
+    fn send_in_ibd(&self) {
+        let content = packed::InIBD::new_builder().build();
+        let message = packed::SyncMessage::new_builder().set(content).build();
+        let nc = Arc::clone(self.nc);
+        let peer = self.peer;
+        self.synchronizer
+            .shared()
+            .shared()
+            .async_handle()
+            .spawn(async move {
+                let _ignore =
+                    async_send_message(SupportProtocols::Sync.protocol_id(), &nc, peer, &message)
+                        .await;
+            });
+    }
+```
+
+**File:** sync/src/synchronizer/get_blocks_process.rs (L33-45)
+```rust
+    pub fn execute(self) -> Status {
+        let block_hashes = self.message.block_hashes();
+        // use MAX_HEADERS_LEN as limit, we may increase the value of INIT_BLOCKS_IN_TRANSIT_PER_PEER in the future
+        if block_hashes.len() > MAX_HEADERS_LEN {
+            return StatusCode::ProtocolMessageIsMalformed.with_context(format!(
+                "BlockHashes count({}) > MAX_HEADERS_LEN({})",
+                block_hashes.len(),
+                MAX_HEADERS_LEN,
+            ));
+        }
+        let active_chain = self.synchronizer.shared.active_chain();
+
+        let iter = block_hashes.iter().take(INIT_BLOCKS_IN_TRANSIT_PER_PEER);
+```
+
+**File:** sync/src/synchronizer/get_blocks_process.rs (L60-83)
+```rust
+            if !active_chain.contains_block_status(&block_hash, BlockStatus::BLOCK_VALID) {
+                debug!(
+                    "Ignoring get_block {} request from peer={} as it is not verified.",
+                    block_hash, self.peer
+                );
+                continue;
+            }
+
+            if let Some(block) = active_chain.get_block(&block_hash) {
+                debug!(
+                    "respond_block {} {} to peer {:?}",
+                    block.number(),
+                    block.hash(),
+                    self.peer,
+                );
+                let content = packed::SendBlock::new_builder().block(block.data()).build();
+                let message = packed::SyncMessage::new_builder().set(content).build();
+
+                let nc = Arc::clone(self.nc);
+                self.synchronizer
+                    .shared()
+                    .shared()
+                    .async_handle()
+                    .spawn(async move { async_send_message_to(&nc, self.peer, &message).await });
+```
+
+**File:** sync/src/relayer/mod.rs (L815-818)
+```rust
+        // If self is in the IBD state, don't process any relayer message.
+        if self.shared.active_chain().is_initial_block_download() {
+            return;
+        }
+```

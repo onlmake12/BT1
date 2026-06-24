@@ -1,0 +1,156 @@
+Audit Report
+
+## Title
+Order-Dependent State Update in `add_entry` Inflates `total_tx_size`/`total_tx_cycles` After Ancestor Eviction — (File: `tx-pool/src/component/pool_map.rs`)
+
+## Summary
+In `PoolMap::add_entry`, `updated_stat_for_add_tx` computes new pool totals into local variables before `check_and_record_ancestors` runs. If `check_and_record_ancestors` evicts existing entries (via `remove_entry_and_descendants` → `update_stat_for_remove_tx`), those evictions correctly decrement `self.total_tx_size`/`self.total_tx_cycles` in place. However, the stale pre-eviction locals are then unconditionally written back, permanently overwriting the correct post-eviction state and inflating the pool's accounting by the cumulative size and cycles of all evicted entries.
+
+## Finding Description
+`updated_stat_for_add_tx` takes `&self` (immutable) and returns computed values without modifying `self`: [1](#0-0) 
+
+In `add_entry`, the returned values are stored in locals at lines 210–211, before `check_and_record_ancestors` is called at line 213: [2](#0-1) 
+
+Inside `check_and_record_ancestors`, when `ancestors_count - cell_ref_parents.len() <= max_ancestors_count`, a loop calls `remove_entry_and_descendants` to evict entries: [3](#0-2) 
+
+Each eviction reaches `remove_entry` → `update_stat_for_remove_tx`, which **directly mutates** `self.total_tx_size` and `self.total_tx_cycles`: [4](#0-3) [5](#0-4) 
+
+After `check_and_record_ancestors` returns, the stale locals — computed before any evictions — are unconditionally written back: [6](#0-5) 
+
+This overwrites the correctly-decremented `self.total_tx_size`/`self.total_tx_cycles` with values that do not account for the evictions. For every evicted entry with size `s` and cycles `c`, the pool's totals are permanently inflated by `s` and `c`. The `recompute_total_stat` fallback in `update_stat_for_remove_tx` only triggers on underflow, not overflow, so the inflation is never self-corrected: [7](#0-6) 
+
+## Impact Explanation
+`limit_size` uses `self.pool_map.total_tx_size` as the sole guard to decide whether to evict more transactions: [8](#0-7) 
+
+An inflated `total_tx_size` causes `limit_size` to evict additional legitimate pending transactions that would otherwise fit within `max_tx_pool_size`. An attacker can repeatedly trigger this path via P2P relay (the crafted transaction propagates to all peers) to systematically drain the mempool of legitimate transactions across the network. This maps to **High: Vulnerabilities or bad designs which could cause CKB network congestion with few costs** — the attacker pays only the fee for the crafted transaction itself, while the inflation persists until the node restarts.
+
+## Likelihood Explanation
+The eviction path is reached when: (1) the incoming transaction has inputs/cell-deps whose outputs are already in the pool (`cell_ref_parents`), (2) the total ancestor count exceeds `max_ancestors_count` (default 1000), and (3) evicting the cell-ref parents brings the count within limits. An unprivileged submitter controlling a pre-built transaction chain satisfying these conditions can trigger this via `send_transaction` RPC or P2P relay. No privileged access, 51% hashpower, or Sybil attack is required. The attack is repeatable: each crafted submission inflates the totals by the cumulative size/cycles of the evicted entries, and the inflation compounds across submissions.
+
+## Recommendation
+Move the stat computation to **after** `check_and_record_ancestors` completes, so it uses the already-updated `self.total_tx_size`/`self.total_tx_cycles` as the base. The call at lines 210–211 should be removed and replaced with a second call after line 213:
+
+```rust
+// Pre-check for overflow only (do not store result yet)
+self.updated_stat_for_add_tx(entry.size, entry.cycles)?;
+evicts = self.check_and_record_ancestors(&mut entry)?;
+// Re-compute AFTER evictions have already updated self.total_tx_size/cycles
+let (total_tx_size, total_tx_cycles) =
+    self.updated_stat_for_add_tx(entry.size, entry.cycles)?;
+// ... rest of add_entry ...
+self.total_tx_size = total_tx_size;
+self.total_tx_cycles = total_tx_cycles;
+```
+
+## Proof of Concept
+1. Pre-populate the pool with transactions A and B (both `cell_ref_parents`), pool total size = `S`, total cycles = `C`.
+2. Set `max_ancestors_count = 1000`; arrange the pool so the incoming transaction T has ancestor count 1001, with A and B as the cell-ref parents that can be evicted to bring it to ≤ 1000.
+3. Submit T via `send_transaction` RPC.
+4. Execution in `add_entry`: locals are set to `S + T.size`; evictions of A and B decrement `self.total_tx_size` to `S - A.size - B.size`; stale local `S + T.size` is written back.
+5. Observe `self.total_tx_size = S + T.size` instead of the correct `S - A.size - B.size + T.size`.
+6. If `S + T.size > max_tx_pool_size`, `limit_size` will now evict legitimate transactions to compensate for the phantom inflation, even though the true pool occupancy is well within limits.
+7. Repeat to compound the inflation across multiple submissions.
+
+### Citations
+
+**File:** tx-pool/src/component/pool_map.rs (L210-213)
+```rust
+        let (total_tx_size, total_tx_cycles) =
+            self.updated_stat_for_add_tx(entry.size, entry.cycles)?;
+        trace!("pool_map.add_{:?} {}", status, entry.transaction().hash());
+        evicts = self.check_and_record_ancestors(&mut entry)?;
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L218-219)
+```rust
+        self.total_tx_size = total_tx_size;
+        self.total_tx_cycles = total_tx_cycles;
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L246-248)
+```rust
+            self.track_entry_statics(Some(entry.status), None);
+            self.update_stat_for_remove_tx(entry.inner.size, entry.inner.cycles);
+            entry.inner
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L603-625)
+```rust
+        if ancestors_count.saturating_sub(cell_ref_parents.len()) <= self.max_ancestors_count {
+            // if ancestors count exceed limitation,
+            // try to evict some conflicted transactions due to ref cells
+
+            // sort them to find out the transactions with lowest fees
+            let evict_candidates: Vec<ProposalShortId> = self
+                .entries
+                .iter_by_evict_key()
+                .filter(move |entry| cell_ref_parents.contains(&entry.id))
+                .map(|x| x.id.clone())
+                .collect();
+
+            let mut iter = evict_candidates.iter();
+            while ancestors_count > self.max_ancestors_count {
+                if let Some(next_id) = iter.next() {
+                    let removed = self.remove_entry_and_descendants(next_id);
+                    ancestors_count = ancestors_count.saturating_sub(1);
+                    parents.remove(next_id);
+                    evicted.extend(removed);
+                } else {
+                    break;
+                }
+            }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L711-728)
+```rust
+    fn updated_stat_for_add_tx(
+        &self,
+        tx_size: usize,
+        cycles: Cycle,
+    ) -> Result<(usize, Cycle), Reject> {
+        let total_tx_size = self.total_tx_size.checked_add(tx_size).ok_or_else(|| {
+            Reject::Full(format!(
+                "tx-pool total_tx_size {} overflows by add {}",
+                self.total_tx_size, tx_size
+            ))
+        })?;
+        let total_tx_cycles = self.total_tx_cycles.checked_add(cycles).ok_or_else(|| {
+            Reject::Full(format!(
+                "tx-pool total_tx_cycles {} overflows by add {}",
+                self.total_tx_cycles, cycles
+            ))
+        })?;
+        Ok((total_tx_size, total_tx_cycles))
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L738-741)
+```rust
+            (Some(total_tx_size), Some(total_tx_cycles)) => {
+                self.total_tx_size = total_tx_size;
+                self.total_tx_cycles = total_tx_cycles;
+            }
+```
+
+**File:** tx-pool/src/component/pool_map.rs (L742-756)
+```rust
+            _ => {
+                if let Some((total_tx_size, total_tx_cycles)) = self.recompute_total_stat() {
+                    error!(
+                        "tx-pool total stats underflowed when removing size {} cycles {}, recomputed size {} cycles {}",
+                        tx_size, cycles, total_tx_size, total_tx_cycles
+                    );
+                    self.total_tx_size = total_tx_size;
+                    self.total_tx_cycles = total_tx_cycles;
+                } else {
+                    error!(
+                        "tx-pool total stats underflowed when removing size {} cycles {}, and recomputing overflowed",
+                        tx_size, cycles
+                    );
+                }
+            }
+```
+
+**File:** tx-pool/src/pool.rs (L298-298)
+```rust
+        while self.pool_map.total_tx_size > self.config.max_tx_pool_size {
+```

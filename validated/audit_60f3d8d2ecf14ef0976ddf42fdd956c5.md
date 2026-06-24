@@ -1,0 +1,1 @@
+I need to verify the exact code paths, especially the key used in `readd_detached_tx` vs. `_process_tx` for cache lookups, and whether the block verifier actually populates the shared cache.
