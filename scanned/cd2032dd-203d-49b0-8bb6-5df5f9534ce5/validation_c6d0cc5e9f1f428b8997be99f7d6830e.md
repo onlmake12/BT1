@@ -1,1 +1,0 @@
-Let me look at the reward calculator and proposal reward logic more carefully.
