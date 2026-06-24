@@ -1,0 +1,151 @@
+All four code references are confirmed exactly as claimed. Let me verify the broader context of `insert_transaction` to ensure no other guards exist.
+
+Audit Report
+
+## Title
+Rich-Indexer `insert_transaction` Breaks Input Loop on First Untracked Cell, Leaving Subsequent Spent Cells Permanently Marked as Live — (`File: util/rich-indexer/src/indexer/mod.rs`)
+
+## Summary
+In `insert_transaction` (`util/rich-indexer/src/indexer/mod.rs`, line 232), a `break` statement exits the entire input-processing loop when `spend_cell` returns `false`. Because `spend_cell` returns `false` as a normal signal meaning "this cell is not in the database" (not an error), every input after the first untracked one is silently skipped. Those cells are never updated to `is_spent = 1`, so they remain permanently visible as live cells to `get_cells` and `get_cells_capacity` RPC callers, corrupting the indexer's UTXO view in a way that cannot self-correct without a full re-index.
+
+## Finding Description
+`insert_transaction` iterates over non-coinbase inputs at lines 228–249:
+
+```rust
+if tx_index != 0 {
+    for (input_index, input) in tx_view.inputs().into_iter().enumerate() {
+        let out_point = input.previous_output();
+        if !spend_cell(&out_point, tx).await? {
+            break;   // line 232 — exits the entire loop
+        }
+        // ... build_input_rows, is_tx_matched
+    }
+}
+``` [1](#0-0) 
+
+`spend_cell` issues `UPDATE output SET is_spent = 1 WHERE ...` and returns `Ok(updated_rows > 0)`:
+
+```rust
+Ok(updated_rows > 0)
+``` [2](#0-1) 
+
+`Ok(false)` is returned whenever the referenced output is absent from the database — a routine condition for cells created before the indexer's start height or excluded by a custom cell filter. There is no error; the correct response is `continue`. Instead, `break` terminates the loop entirely. All subsequent inputs in the same transaction are never processed: `spend_cell` is never called for them, so their `is_spent` column stays `0`.
+
+No compensating guard exists between lines 249 and 266 that would retroactively mark those cells spent. [3](#0-2) 
+
+## Impact Explanation
+`get_cells` and `get_cells_capacity` both filter on `output.is_spent = 0` to enumerate live cells: [4](#0-3) [5](#0-4) 
+
+Any cell whose `is_spent` flag was never set to `1` due to the premature `break` is permanently returned as a live cell by these RPC endpoints. This constitutes a **suboptimal (incorrect) implementation of CKB's state storage mechanism**: the rich-indexer's UTXO set diverges from actual chain state, capacity totals are inflated, and the database cannot self-correct without a full re-index. This matches the allowed impact: **Medium (2001–10000 points) — Suboptimal implementation of CKB state storage mechanism**.
+
+## Likelihood Explanation
+The trigger is a confirmed block containing a transaction with two or more inputs where the first input's previous output is absent from the rich-indexer's database. This occurs naturally and frequently under two common, non-adversarial conditions: (1) the indexer was started at a block height after the first input's cell was created (partial/late-start sync), or (2) a custom cell filter is active and the first input's cell does not match it while a later input's cell does. No special privileges, keys, or majority hash power are required. Any wallet or DApp transaction with multiple inputs can trigger this silently.
+
+## Recommendation
+Replace `break` with `continue` at line 232 of `util/rich-indexer/src/indexer/mod.rs`:
+
+```rust
+if !spend_cell(&out_point, tx).await? {
+    continue;   // cell not tracked; skip this input, process the rest
+}
+```
+
+This correctly treats `Ok(false)` from `spend_cell` as a normal "not found" signal and ensures every input in a transaction is independently evaluated. [6](#0-5) 
+
+## Proof of Concept
+1. Start the rich-indexer at block height `N > 0` (or enable a custom cell filter that excludes some cells).
+2. Submit (or observe) a confirmed transaction `T` at height `M > N` with two inputs:
+   - **Input 0**: spends cell `C0` created at height `< N` (or excluded by filter) → `spend_cell(C0)` returns `Ok(false)` → `break` fires.
+   - **Input 1**: spends cell `C1` created at height `>= N` and tracked by the indexer → loop never reaches this input.
+3. After block `M` is indexed, query `get_cells` with `C1`'s lock script.
+4. **Expected**: no results (C1 is spent). **Actual**: `C1` is returned as a live cell with `is_spent = 0`.
+5. Query `get_cells_capacity` for the same lock script: the returned capacity includes `C1`'s value, inflating the balance.
+6. The state persists across restarts and cannot be corrected without a full re-index from genesis (or from before height `M`).
+
+### Citations
+
+**File:** util/rich-indexer/src/indexer/mod.rs (L228-249)
+```rust
+        if tx_index != 0 {
+            for (input_index, input) in tx_view.inputs().into_iter().enumerate() {
+                let out_point = input.previous_output();
+                if !spend_cell(&out_point, tx).await? {
+                    break;
+                }
+                if self.custom_filters.is_cell_filter_enabled() {
+                    if let Some((output_id, output, output_data)) =
+                        query_output_cell(&out_point, tx).await?
+                        && self
+                            .custom_filters
+                            .is_cell_filter_match(&output, &output_data.into())
+                    {
+                        build_input_rows(output_id, &input, input_index, &mut input_rows);
+                        is_tx_matched = true;
+                    }
+                } else if let Some(output_id) = query_output_id(&out_point, tx).await? {
+                    build_input_rows(output_id, &input, input_index, &mut input_rows);
+                    is_tx_matched = true;
+                }
+            }
+        }
+```
+
+**File:** util/rich-indexer/src/indexer/mod.rs (L250-266)
+```rust
+
+        if !self.custom_filters.is_cell_filter_enabled() {
+            is_tx_matched = true;
+        }
+
+        if !is_tx_matched {
+            return Ok(());
+        }
+
+        let tx_id = insert_transaction_table(block_id, tx_index, &tx_view, tx).await?;
+        bulk_insert_tx_association_header_dep_table(tx_id, &tx_view, tx).await?;
+        bulk_insert_tx_association_cell_dep_table(tx_id, &tx_view, tx).await?;
+
+        bulk_insert_input_table(tx_id, input_rows, tx).await?;
+        bulk_insert_script_table(script_set, tx).await?;
+        bulk_insert_output_table(tx_id, output_cell_rows, tx).await
+    }
+```
+
+**File:** util/rich-indexer/src/indexer/insert.rs (L403-427)
+```rust
+pub(crate) async fn spend_cell(
+    out_point: &OutPoint,
+    tx: &mut Transaction<'_, Any>,
+) -> Result<bool, Error> {
+    let output_tx_hash = out_point.tx_hash().raw_data().to_vec();
+    let output_index: u32 = out_point.index().into();
+
+    let updated_rows = sqlx::query(
+        r#"
+            UPDATE output
+            SET is_spent = 1
+            WHERE
+                tx_id = (SELECT ckb_transaction.id FROM ckb_transaction WHERE tx_hash = $1)
+                AND output_index = $2
+        "#,
+    )
+    .bind(output_tx_hash)
+    .bind(output_index as i32)
+    .execute(tx.as_mut())
+    .await
+    .map_err(|err| Error::DB(err.to_string()))?
+    .rows_affected();
+
+    Ok(updated_rows > 0)
+}
+```
+
+**File:** util/rich-indexer/src/indexer_handle/async_indexer_handle/get_cells.rs (L107-107)
+```rust
+        .and_where("output.is_spent = 0"); // live cells
+```
+
+**File:** util/rich-indexer/src/indexer_handle/async_indexer_handle/get_cells_capacity.rs (L71-71)
+```rust
+        query_builder.and_where("output.is_spent = 0"); // live cells
+```

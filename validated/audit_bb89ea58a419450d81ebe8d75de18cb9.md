@@ -1,0 +1,165 @@
+All three code files confirm the technical claims. Let me verify the exact behavior of `sort_then_drop` to confirm the protection direction before rendering a verdict.
+
+The sort comparator at `peer_registry.rs:181` is `peer2_last_message.cmp(&peer1_last_message)` — descending by elapsed time (oldest first). `truncate(list.len() - n)` removes the front (oldest), keeping the tail (most-recently-active). This confirms the 8 most-recently-stamped peers are protected from eviction.
+
+Every technical assertion in the report is confirmed by the actual code:
+
+1. `ping_received()` unconditionally stamps `last_ping_protocol_message_received_at` — [1](#0-0) 
+2. Called on every inbound `PingPayload::Ping`, no rate check — [2](#0-1) 
+3. No rate limiting anywhere in the file — confirmed by reading the full handler.
+4. `try_evict_inbound_peer()` uses this field to protect 8 peers — [3](#0-2) 
+5. `sort_then_drop` keeps the tail (most-recent) — [4](#0-3) 
+
+---
+
+Audit Report
+
+## Title
+Unsolicited Ping Flooding Bypasses Recency-Protection in `try_evict_inbound_peer` — (`network/src/protocols/ping.rs`, `network/src/peer_registry.rs`)
+
+## Summary
+`PingHandler::ping_received()` unconditionally updates `Peer::last_ping_protocol_message_received_at` to `Instant::now()` on every inbound Ping message with no rate limiting. `try_evict_inbound_peer()` uses this field to protect the 8 most-recently-active peers from eviction. An attacker sending cheap, unsolicited Ping messages at high frequency keeps their elapsed time near zero, permanently landing in the protected set and squatting an inbound slot indefinitely at negligible cost.
+
+## Finding Description
+**Root cause — unconditional timestamp update in `ping_received()`:**
+
+`ping_received()` writes `Instant::now()` to `peer.last_ping_protocol_message_received_at` for every inbound Ping, with no counter, no minimum interval, and no per-session rate limit anywhere in `ping.rs`:
+
+```rust
+// network/src/protocols/ping.rs L62-69
+fn ping_received(&mut self, id: SessionId) {
+    self.network_state.with_peer_registry_mut(|reg| {
+        if let Some(peer) = reg.get_peer_mut(id) {
+            peer.last_ping_protocol_message_received_at = Some(Instant::now());
+        }
+    });
+}
+```
+
+This is called unconditionally from the `received()` dispatcher on every `PingPayload::Ping` message:
+
+```rust
+// network/src/protocols/ping.rs L214-218
+PingPayload::Ping(nonce) => {
+    self.ping_received(session.id);
+    ...
+}
+```
+
+**Vulnerable field — `Peer::last_ping_protocol_message_received_at`:**
+
+Declared at `network/src/peer.rs:71`. The update fires on one-sided inbound Ping messages, not only on completed Ping→Pong round-trips (which would require the victim to have first issued the Ping, making the nonce unguessable).
+
+**Eviction protection reads this field directly:**
+
+`try_evict_inbound_peer()` runs a `sort_then_drop` pass that sorts candidates by ascending elapsed time since `last_ping_protocol_message_received_at` and truncates the front, keeping the 8 most-recently-stamped peers in the candidate list as protected:
+
+```rust
+// network/src/peer_registry.rs L167-183
+sort_then_drop(
+    &mut candidate_peers,
+    EVICTION_PROTECT_PEERS,
+    |peer1, peer2| {
+        let now = Instant::now();
+        let peer1_last_message = peer1
+            .last_ping_protocol_message_received_at
+            .map(|t| now.saturating_duration_since(t).as_secs())
+            .unwrap_or_else(|| u64::MAX);
+        let peer2_last_message = peer2
+            .last_ping_protocol_message_received_at
+            .map(|t| now.saturating_duration_since(t).as_secs())
+            .unwrap_or_else(|| u64::MAX);
+        peer2_last_message.cmp(&peer1_last_message)
+    },
+);
+```
+
+The comparator `peer2.cmp(&peer1)` sorts descending by elapsed time (oldest first). `truncate(list.len() - n)` removes the front, so the 8 peers with the smallest elapsed time (most recently stamped) are retained and protected. An attacker sending a Ping every 100 ms keeps their elapsed time at ~0 s, always landing in the protected tail. Legitimate peers with normal ~15 s Ping intervals accumulate larger elapsed times and are preferentially evicted.
+
+**Existing guards are insufficient:**
+
+The only existing guard against malformed Pings is a decode check that disconnects on parse failure. There is no minimum inter-message interval, no per-session Ping counter, and no check that the inbound Ping corresponds to an outstanding outbound Ping.
+
+## Impact Explanation
+This is a **High** severity finding matching: *"Vulnerabilities or bad designs which could cause CKB network congestion with few costs."*
+
+An attacker with multiple connections from distinct /16 subnets can occupy multiple recency-protected inbound slots simultaneously. Each slot held by the attacker is a slot unavailable to honest peers. At scale, this degrades the victim node's ability to maintain a representative sample of the honest network, reduces effective inbound capacity, and serves as a low-cost staging mechanism for eclipse attacks — all achievable at negligible bandwidth cost (a few bytes per 100 ms per slot).
+
+## Likelihood Explanation
+The exploit requires only a valid TCP connection and the ability to send well-formed Ping messages — both trivially achievable by any unprivileged peer. No proof-of-work, no key material, and no privileged role is required. The per-slot cost is a few bytes every 100 ms. The attack is repeatable indefinitely and requires no victim interaction or mistake.
+
+## Recommendation
+1. **Only update the activity timestamp on Pong receipt, not Ping receipt.** Move the `last_ping_protocol_message_received_at` update exclusively into `pong_received()`. A valid Pong requires a matching nonce from an outstanding outbound Ping that the victim node initiated — a property the attacker cannot forge without the victim first sending the Ping.
+
+2. **Rate-limit inbound Ping messages per session.** Enforce a minimum inter-Ping interval (e.g., no more than one Ping per `interval/2`) and disconnect peers that exceed it, consistent with the existing timeout-disconnect pattern in `notify()`.
+
+## Proof of Concept
+```
+1. Victim node: max_inbound = N, all N slots filled with legitimate peers.
+2. Attacker connects (evicts one legitimate peer to obtain a slot).
+3. Attacker spawns a loop: every 100 ms, send a valid PingMessage::Ping(any_nonce).
+4. Each message triggers ping_received() → last_ping_protocol_message_received_at = Instant::now().
+5. When any new peer tries to connect, try_evict_inbound_peer() runs.
+6. Recency pass: attacker's elapsed ≈ 0 s; legitimate peers' elapsed ≈ 0–15 s.
+7. Attacker is always in the protected-8 tail; a legitimate peer is evicted instead.
+8. Repeat indefinitely — attacker's slot is never reclaimed.
+```
+
+The existing test `test_accept_inbound_peer_eviction` in `network/src/tests/peer_registry.rs` (lines 120–227) already exercises the recency-protection mechanism. Extending it to simulate a peer with `last_ping_protocol_message_received_at` refreshed every 100 ms and running 1,000 eviction rounds would confirm the attacker peer is never selected for eviction.
+
+### Citations
+
+**File:** network/src/protocols/ping.rs (L62-69)
+```rust
+    fn ping_received(&mut self, id: SessionId) {
+        trace!("received ping from: {:?}", id);
+        self.network_state.with_peer_registry_mut(|reg| {
+            if let Some(peer) = reg.get_peer_mut(id) {
+                peer.last_ping_protocol_message_received_at = Some(Instant::now());
+            }
+        });
+    }
+```
+
+**File:** network/src/protocols/ping.rs (L214-218)
+```rust
+                match msg {
+                    PingPayload::Ping(nonce) => {
+                        self.ping_received(session.id);
+                        if context
+                            .send_message(PingMessage::build_pong(nonce))
+```
+
+**File:** network/src/peer_registry.rs (L55-63)
+```rust
+fn sort_then_drop<T, F>(list: &mut Vec<T>, n: usize, compare: F)
+where
+    F: FnMut(&T, &T) -> std::cmp::Ordering,
+{
+    list.sort_by(compare);
+    if list.len() > n {
+        list.truncate(list.len() - n);
+    }
+}
+```
+
+**File:** network/src/peer_registry.rs (L167-183)
+```rust
+        // Protect peers which most recently sent messages
+        sort_then_drop(
+            &mut candidate_peers,
+            EVICTION_PROTECT_PEERS,
+            |peer1, peer2| {
+                let now = Instant::now();
+                let peer1_last_message = peer1
+                    .last_ping_protocol_message_received_at
+                    .map(|t| now.saturating_duration_since(t).as_secs())
+                    .unwrap_or_else(|| u64::MAX);
+                let peer2_last_message = peer2
+                    .last_ping_protocol_message_received_at
+                    .map(|t| now.saturating_duration_since(t).as_secs())
+                    .unwrap_or_else(|| u64::MAX);
+                peer2_last_message.cmp(&peer1_last_message)
+            },
+        );
+```
