@@ -1,0 +1,255 @@
+Audit Report
+
+## Title
+O(n) Double-Scan CPU Amplification in `check_purge` via Unbounded Discovery Announce Relay — (`network/src/peer_store/peer_store_impl.rs`)
+
+## Summary
+`add_addr` unconditionally calls `check_purge` before every insertion. When the peer store is full at 16,384 entries and all entries are connectable, `check_purge` performs two complete O(n) linear scans and returns `Err(EvictionFailed)` without shrinking the store. Because the discovery protocol imposes no per-session or per-time-window rate limit on `announce=true` Nodes messages, a single unprivileged peer can sustain ~983,040 HashMap iterations per message, causing CPU amplification that degrades block/transaction relay and sync on the shared async runtime.
+
+## Finding Description
+
+**Entry point:** `DiscoveryProtocol::received()` processes incoming `Nodes` messages and calls `add_new_addrs`, which loops over each address and calls `peer_store.add_addr()` for every one. [1](#0-0) 
+
+**`add_addr` unconditionally calls `check_purge` before every insertion:** [2](#0-1) 
+
+**`check_purge` — Pass 1:** Iterates all 16,384 entries via `addrs_iter()` looking for non-connectable peers: [3](#0-2) 
+
+**`check_purge` — Pass 2:** If pass 1 finds nothing (all entries connectable), iterates all 16,384 entries again to build network-group buckets, sort them, and attempt group-based eviction: [4](#0-3) 
+
+**Eviction failure:** If no group has more than 4 peers, `candidate_peers` is empty and `Err(EvictionFailed)` is returned. The store stays at 16,384 and the next `add_addr` call repeats the full O(2n) scan: [5](#0-4) 
+
+**Newly added addresses are always connectable:** `AddrInfo::new` sets `last_connected_at_ms = 0` and `attempts_count = 0`. Under `is_connectable`, the condition `last_connected_at_ms == 0 && attempts_count >= ADDR_MAX_RETRIES` evaluates to `false` (0 < 3), so the address is considered connectable and is never evicted by pass 1: [6](#0-5) [7](#0-6) 
+
+**No rate limit on announce messages:** The only guard on `announce=true` Nodes messages is a cap of `ANNOUNCE_THRESHOLD` (10) items per message, each with up to `MAX_ADDRS` (3) addresses = 30 `add_addr` calls per message. There is no per-session or per-time-window rate limit on message frequency: [8](#0-7) 
+
+**`ADDR_COUNT_LIMIT` and `ADDR_MAX_RETRIES` constants:** [9](#0-8) 
+
+## Impact Explanation
+
+Total work per announce message when the store is full and eviction fails:
+
+```
+30 addrs/msg × 2 × 16,384 iterations = ~983,040 HashMap iterations per message
+```
+
+A single connected peer sending announce messages at a sustained rate causes CPU load proportional to message rate, with no bound from the store's own logic. This degrades node responsiveness for block/transaction relay and sync, which share the same async runtime. This matches: **High — Vulnerabilities or bad designs which could cause CKB network congestion with few costs** (10001–15000 points). A single persistent P2P connection with no PoW, no privileged role, and no Sybil majority is sufficient.
+
+## Likelihood Explanation
+
+**Precondition (fill phase):** The attacker fills the store with 16,384 connectable addresses from 4,096+ distinct /24 networks (≤4 per group). Non-announce Nodes messages allow up to 1,000 items × 3 addresses = 3,000 addresses per session; ~6 sessions suffice to fill the store. All inserted addresses are immediately connectable (`attempts_count = 0 < ADDR_MAX_RETRIES = 3`), so pass 1 of `check_purge` never evicts them.
+
+**Attack phase:** Once the store is full with diverse /24 groups (≤4 per group), the attacker sends `Nodes(announce=true)` messages in a tight loop. Each message is accepted (≤10 items, ≤3 addrs each), triggers 30 `check_purge()` calls, each scanning 16,384 entries twice, and returns `Err(EvictionFailed)` every time — the store never shrinks. The attack is repeatable indefinitely from a single connection with no additional cost.
+
+## Recommendation
+
+1. **Cache eviction failure:** Track a dirty/full flag in `check_purge`. If the previous eviction attempt already failed, skip the O(n) scan for a short interval (e.g., 1 second) before retrying.
+2. **Rate-limit `add_addr` calls per session:** Throttle how many addr insertions are processed per peer per time window before invoking `check_purge`.
+3. **Amortize eviction:** Decouple eviction from the hot `add_addr` path; run it on a background timer instead of inline.
+
+## Proof of Concept
+
+```
+1. Open a P2P connection to the victim node.
+2. Send Nodes(announce=false) with 1000 items × 3 addrs each, using unique IPs
+   spread across 4096+ /24 networks (≤4 per /24). Repeat across ~6 sessions
+   until addr_manager.count() == 16384.
+3. In a tight loop on a single session, send Nodes(announce=true) with 10 items
+   × 3 unique addrs (any addresses; they will fail to insert but still trigger
+   check_purge).
+4. Each message triggers 30 × check_purge() calls, each scanning 16384 entries
+   twice (pass 1: no non-connectable found; pass 2: no group > 4 peers).
+5. Observe: node CPU spikes proportionally to message rate;
+   add_addr returns Err(EvictionFailed) for every call (store stays at 16384).
+6. Confirm: benchmark add_addr latency at count=16384 (all connectable, diverse
+   /24s) vs count=0 — latency scales linearly with store size.
+```
+
+### Citations
+
+**File:** network/src/protocols/discovery/mod.rs (L266-300)
+```rust
+fn verify_nodes_message(nodes: &Nodes) -> Option<Misbehavior> {
+    let mut misbehavior = None;
+    if nodes.announce {
+        if nodes.items.len() > ANNOUNCE_THRESHOLD {
+            warn!(
+                "Number of nodes exceeds announce threshold {}",
+                ANNOUNCE_THRESHOLD
+            );
+            misbehavior = Some(Misbehavior::TooManyItems {
+                announce: nodes.announce,
+                length: nodes.items.len(),
+            });
+        }
+    } else if nodes.items.len() > MAX_ADDR_TO_SEND {
+        warn!(
+            "Too many items (announce=false) length={}",
+            nodes.items.len()
+        );
+        misbehavior = Some(Misbehavior::TooManyItems {
+            announce: nodes.announce,
+            length: nodes.items.len(),
+        });
+    }
+
+    if misbehavior.is_none() {
+        for item in &nodes.items {
+            if item.addresses.len() > MAX_ADDRS {
+                misbehavior = Some(Misbehavior::TooManyAddresses(item.addresses.len()));
+                break;
+            }
+        }
+    }
+
+    misbehavior
+}
+```
+
+**File:** network/src/protocols/discovery/mod.rs (L347-363)
+```rust
+    fn add_new_addrs(&mut self, _session_id: SessionId, addrs: Vec<(Multiaddr, Flags)>) {
+        if addrs.is_empty() {
+            return;
+        }
+
+        for (addr, flags) in addrs.into_iter().filter(|addr| self.is_valid_addr(&addr.0)) {
+            trace!("Add discovered address:{:?}", addr);
+            self.network_state.with_peer_store_mut(|peer_store| {
+                if let Err(err) = peer_store.add_addr(addr.clone(), flags) {
+                    debug!(
+                        "Failed to add discovered address to peer_store {:?} {:?}",
+                        err, addr
+                    );
+                }
+            });
+        }
+    }
+```
+
+**File:** network/src/peer_store/peer_store_impl.rs (L71-79)
+```rust
+    pub fn add_addr(&mut self, addr: Multiaddr, flags: Flags) -> Result<()> {
+        if self.ban_list.is_addr_banned(&addr) {
+            return Ok(());
+        }
+        self.check_purge()?;
+        let score = self.score_config.default_score;
+        self.addr_manager
+            .add(AddrInfo::new(addr, 0, score, flags.bits()));
+        Ok(())
+```
+
+**File:** network/src/peer_store/peer_store_impl.rs (L341-351)
+```rust
+        let candidate_peers: Vec<_> = self
+            .addr_manager
+            .addrs_iter()
+            .filter_map(|addr| {
+                if !addr.is_connectable(now_ms) {
+                    Some(addr.addr.clone())
+                } else {
+                    None
+                }
+            })
+            .collect();
+```
+
+**File:** network/src/peer_store/peer_store_impl.rs (L358-393)
+```rust
+            let candidate_peers: Vec<_> = {
+                let mut peers_by_network_group: HashMap<Group, Vec<_>> = HashMap::default();
+                for addr in self.addr_manager.addrs_iter() {
+                    peers_by_network_group
+                        .entry((&addr.addr).into())
+                        .or_default()
+                        .push(addr);
+                }
+                let len = peers_by_network_group.len();
+                let mut peers = peers_by_network_group
+                    .drain()
+                    .map(|(_, v)| v)
+                    .collect::<Vec<Vec<_>>>();
+
+                peers.sort_unstable_by_key(|k| std::cmp::Reverse(k.len()));
+
+                peers
+                    .into_iter()
+                    .take(len / 2)
+                    .flat_map(move |addrs| {
+                        if addrs.len() > 4 {
+                            Some(
+                                addrs
+                                    .iter()
+                                    .choose_multiple(&mut rand::thread_rng(), 2)
+                                    .into_iter()
+                                    .map(|addr| addr.addr.clone())
+                                    .collect::<Vec<Multiaddr>>(),
+                            )
+                        } else {
+                            None
+                        }
+                    })
+                    .flatten()
+                    .collect()
+            };
+```
+
+**File:** network/src/peer_store/peer_store_impl.rs (L399-401)
+```rust
+            if candidate_peers.is_empty() {
+                return Err(PeerStoreError::EvictionFailed.into());
+            }
+```
+
+**File:** network/src/peer_store/types.rs (L63-76)
+```rust
+impl AddrInfo {
+    /// Init
+    pub fn new(addr: Multiaddr, last_connected_at_ms: u64, score: Score, flags: u64) -> Self {
+        AddrInfo {
+            // only store tcp protocol
+            addr: base_addr(&addr),
+            score,
+            last_connected_at_ms,
+            last_tried_at_ms: 0,
+            attempts_count: 0,
+            random_id_pos: 0,
+            flags,
+        }
+    }
+```
+
+**File:** network/src/peer_store/types.rs (L89-105)
+```rust
+    pub fn is_connectable(&self, now_ms: u64) -> bool {
+        // do not remove addr tried in last minute
+        if self.tried_in_last_minute(now_ms) {
+            return true;
+        }
+        // we give up if never connect to this addr
+        if self.last_connected_at_ms == 0 && self.attempts_count >= ADDR_MAX_RETRIES {
+            return false;
+        }
+        // consider addr is not connectable if failed too many times
+        if now_ms.saturating_sub(self.last_connected_at_ms) > ADDR_TIMEOUT_MS
+            && (self.attempts_count >= ADDR_MAX_FAILURES)
+        {
+            return false;
+        }
+        true
+    }
+```
+
+**File:** network/src/peer_store/mod.rs (L26-35)
+```rust
+pub(crate) const ADDR_COUNT_LIMIT: usize = 16384;
+/// Consider we never seen a peer if peer's last_connected_at beyond this timeout
+const ADDR_TIMEOUT_MS: u64 = 7 * 24 * 3600 * 1000;
+/// The timeout that peer's address should be added to the feeler list again
+pub(crate) const ADDR_TRY_TIMEOUT_MS: u64 = 3 * 24 * 3600 * 1000;
+/// When obtaining the list of selectable nodes for identify,
+/// the node that has just been disconnected needs to be excluded
+pub(crate) const DIAL_INTERVAL: u64 = 15 * 1000;
+const ADDR_MAX_RETRIES: u32 = 3;
+const ADDR_MAX_FAILURES: u32 = 10;
+```

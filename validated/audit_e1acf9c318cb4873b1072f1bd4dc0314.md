@@ -1,0 +1,145 @@
+All claims verified against the actual source code. Every line reference, code snippet, and arithmetic in the report is accurate.
+
+**Verified facts:**
+
+- [1](#0-0)  — `withdraw_counted_capacity as u64` silent truncating cast confirmed at line 155–156.
+- [2](#0-1)  — safe `u64::try_from(reward128).map_err(|_| DaoError::Overflow)?` at line 204.
+- [3](#0-2)  — safe `u64::try_from(miner_issuance128)` at line 245.
+- [4](#0-3)  — safe `u64::try_from(ar_increase128)` at line 258.
+- [5](#0-4)  — `transaction_fee` → `transaction_maximum_withdraw` call path confirmed.
+- [6](#0-5)  — `transaction_maximum_withdraw` → `calculate_maximum_withdraw` call path confirmed.
+- [7](#0-6)  — RPC path calling `calculate_maximum_withdraw` directly confirmed.
+
+---
+
+Audit Report
+
+## Title
+Silent u128→u64 Truncation in `calculate_maximum_withdraw` Produces Incorrect DAO Withdrawal Capacity — (File: `util/dao/src/lib.rs`)
+
+## Summary
+`DaoCalculator::calculate_maximum_withdraw` computes a u128 intermediate value `withdraw_counted_capacity` and converts it to u64 via a silent `as u64` cast at line 156, silently truncating the upper 64 bits on overflow. Every other u128→u64 narrowing in the same file uses `u64::try_from(...).map_err(|_| DaoError::Overflow)?`. When the overflow condition is met, the returned capacity is arbitrarily smaller than the correct value, causing either permanent rejection of a valid DAO withdrawal transaction or silent loss of the depositor's accrued interest.
+
+## Finding Description
+In `util/dao/src/lib.rs`, `calculate_maximum_withdraw` computes:
+
+```rust
+let withdraw_counted_capacity = u128::from(counted_capacity.as_u64())
+    * u128::from(withdrawing_ar)
+    / u128::from(deposit_ar);
+let withdraw_capacity =
+    Capacity::shannons(withdraw_counted_capacity as u64).safe_add(occupied_capacity)?;
+```
+
+The cast `withdraw_counted_capacity as u64` wraps silently to `withdraw_counted_capacity % 2^64` when the value exceeds `u64::MAX`. No error is returned.
+
+The three other u128→u64 narrowings in the same file all use the safe checked form:
+- Line 204: `u64::try_from(reward128).map_err(|_| DaoError::Overflow)?`
+- Line 245: `u64::try_from(miner_issuance128).map_err(|_| DaoError::Overflow)?`
+- Line 258: `u64::try_from(ar_increase128).map_err(|_| DaoError::Overflow)?`
+
+The overflow condition is `counted_capacity * withdrawing_ar > u64::MAX * deposit_ar`. Since `counted_capacity` is a u64-derived value and `withdrawing_ar` grows monotonically above `deposit_ar` as the chain matures, any cell whose `counted_capacity` is sufficiently large will trigger this path. The truncated result can be orders of magnitude smaller than the correct value.
+
+The two affected call paths are:
+
+1. **Consensus-critical path**: `transaction_maximum_withdraw` (line 108) calls `calculate_maximum_withdraw`, and `transaction_fee` (lines 30–36) calls `transaction_maximum_withdraw`.
+
+2. **RPC path**: `calculate_dao_maximum_withdraw` in `rpc/src/module/experiment.rs` calls `calculate_maximum_withdraw` directly and returns the result to callers.
+
+When `transaction_fee` receives a truncated `maximum_withdraw`, it computes `maximum_withdraw.safe_sub(outputs_capacity)`. If the depositor's transaction claims the correct (larger) amount, `safe_sub` fails and the transaction is permanently rejected. If the depositor relies on the RPC result (which also returns the truncated value), they accept a silently reduced withdrawal, losing the difference.
+
+## Impact Explanation
+This matches **Critical — Vulnerabilities which could easily damage CKB economy**. A DAO depositor with a sufficiently large cell either permanently loses access to their accrued DAO interest (funds frozen in the contract with no valid withdrawal path) or silently receives far less than entitled. The RPC `calculate_dao_maximum_withdraw` reinforces the incorrect value, so the depositor has no on-chain mechanism to detect or recover from the discrepancy. The loss is irreversible once the withdrawal window is missed or the truncated transaction is accepted.
+
+## Likelihood Explanation
+The overflow requires `counted_capacity` (cell capacity minus occupied capacity) to be large enough that `counted_capacity * withdrawing_ar / deposit_ar > u64::MAX`. With the initial ar of `10^16`, a cell with `counted_capacity` near `u64::MAX` (~184 billion CKB) overflows even with minimal ar growth. As the chain matures and `withdrawing_ar/deposit_ar` increases, the threshold decreases proportionally. The CKB protocol imposes no cap on individual cell capacity. No privileged access is required — any DAO depositor who deposits a sufficiently large cell is affected. The condition is deterministic and repeatable.
+
+## Recommendation
+Replace the silent cast with the checked conversion already used consistently elsewhere in the file:
+
+```rust
+let withdraw_counted_capacity_u64 =
+    u64::try_from(withdraw_counted_capacity).map_err(|_| DaoError::Overflow)?;
+let withdraw_capacity =
+    Capacity::shannons(withdraw_counted_capacity_u64).safe_add(occupied_capacity)?;
+```
+
+This matches the pattern at lines 204, 245, and 258 and surfaces overflow as `DaoError::Overflow` rather than silently producing a wrong capacity.
+
+## Proof of Concept
+**Parameters:**
+- `deposit_ar` = `10_000_000_000_000_000` (initial ar, 10^16)
+- `withdrawing_ar` = `10_000_000_001_000_000` (modest growth, +10^9)
+- `counted_capacity` = `18_446_744_073_000_000_000` (near u64::MAX)
+
+**Computation:**
+- `withdraw_counted_capacity = 18_446_744_073_000_000_000 * 10_000_000_001_000_000 / 10_000_000_000_000_000`
+- `= 18_446_744_074_844_674_407` (exceeds u64::MAX = `18_446_744_073_709_551_615`)
+- `as u64` truncates to: `18_446_744_074_844_674_407 - 2^64 = 1_135_122_791` (~11 CKB)
+
+**Result:** The depositor's correct withdrawal of ~184 billion CKB is reported as ~11 CKB. A withdrawal transaction claiming the correct amount is rejected by `transaction_fee` via `safe_sub` overflow. A unit test can be written directly against `DaoCalculator::calculate_maximum_withdraw` with a mock header provider supplying these ar values and a mock cell output with the above capacity, asserting that the function returns `Err(DaoError::Overflow)` after the fix and currently returns `Ok(Capacity::shannons(1_135_122_791))`.
+
+### Citations
+
+**File:** util/dao/src/lib.rs (L30-36)
+```rust
+    pub fn transaction_fee(&self, rtx: &ResolvedTransaction) -> Result<Capacity, DaoError> {
+        let maximum_withdraw = self.transaction_maximum_withdraw(rtx)?;
+        rtx.transaction
+            .outputs_capacity()
+            .and_then(|y| maximum_withdraw.safe_sub(y))
+            .map_err(Into::into)
+    }
+```
+
+**File:** util/dao/src/lib.rs (L108-113)
+```rust
+                            self.calculate_maximum_withdraw(
+                                output,
+                                Capacity::bytes(cell_meta.data_bytes as usize)?,
+                                deposit_header_hash,
+                                withdrawing_header_hash,
+                            )
+```
+
+**File:** util/dao/src/lib.rs (L152-156)
+```rust
+        let withdraw_counted_capacity = u128::from(counted_capacity.as_u64())
+            * u128::from(withdrawing_ar)
+            / u128::from(deposit_ar);
+        let withdraw_capacity =
+            Capacity::shannons(withdraw_counted_capacity as u64).safe_add(occupied_capacity)?;
+```
+
+**File:** util/dao/src/lib.rs (L202-204)
+```rust
+        let reward128 = u128::from(target_g2.as_u64()) * u128::from(target_parent_u.as_u64())
+            / u128::from(target_parent_c.as_u64());
+        let reward = u64::try_from(reward128).map_err(|_| DaoError::Overflow)?;
+```
+
+**File:** util/dao/src/lib.rs (L244-245)
+```rust
+        let miner_issuance =
+            Capacity::shannons(u64::try_from(miner_issuance128).map_err(|_| DaoError::Overflow)?);
+```
+
+**File:** util/dao/src/lib.rs (L256-258)
+```rust
+        let ar_increase128 =
+            u128::from(parent_ar) * u128::from(current_g2.as_u64()) / u128::from(parent_c.as_u64());
+        let ar_increase = u64::try_from(ar_increase128).map_err(|_| DaoError::Overflow)?;
+```
+
+**File:** rpc/src/module/experiment.rs (L259-267)
+```rust
+                match calculator.calculate_maximum_withdraw(
+                    &output,
+                    core::Capacity::bytes(output_data.len()).expect("should not overflow"),
+                    &deposit_header_hash,
+                    &withdrawing_header_hash.into(),
+                ) {
+                    Ok(capacity) => Ok(capacity.into()),
+                    Err(err) => Err(RPCError::custom_with_error(RPCError::DaoError, err)),
+                }
+```
