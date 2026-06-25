@@ -1,1 +1,0 @@
-Let me verify the critical `SyncState::tip_synced()` method and the `n_sync_started` accounting before rendering a verdict.
